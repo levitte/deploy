@@ -12,6 +12,7 @@ TAR_GROUP=root:0
 # End of configurable parameters
 
 here=${DEPLOY_DIR:-$(pwd)}
+scriptdir=$(cd $(dirname $(realpath $0)); pwd)
 
 save_args="$*"
 upload=true
@@ -203,7 +204,7 @@ if cd $here/$feature; then
 	done
 
 	# Phase 1.20: Create the deployment scripts
-	for src in $abshere/../_host_helpers/*.tt2; do
+	for src in $scriptdir/_host_helpers/*.tt2; do
 	    dst=/tmp/$(basename $src .tt2).$feature
 	    eval "tpage --define host='$finalhost' --define feature='$feature' $tpage_extra '$src'" > $dst
 	    chmod a+x $dst
