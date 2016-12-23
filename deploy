@@ -176,9 +176,23 @@ if cd $here/$feature; then
 		    ( cd $staging; tar -xpf - )
 	    fi
 
-	    # Phase 1.8: Run post-copy
+	    # Phase 1.7: Run post-copy
 	    if [ -x post-copy ]; then
 		( cd $staging; $abshere/post-copy common $finalhost )
+	    fi
+
+	    # Phase 1.8: Create the host specific pre-deployment script
+	    if [ -f pre-deploy.tt2 ]; then
+		dst=/tmp/pre-deploy.$feature.$finalhost
+		remdst=/tmp/pre-deploy.$feature
+		eval "tpage --define host='$finalhost' --define feature='$feature' --define staging='$staging' $tpage_extra pre-deploy.tt2" > $dst
+		chmod a+x $dst
+		deploy_files="$deploy_files ${dst}:${remdst}"
+	    elif [ -x pre-deploy ]; then
+		dst=/tmp/pre-deploy.$feature.$finalhost
+		remdst=/tmp/pre-deploy.$feature
+		cp pre-deploy $dst
+		deploy_files="$deploy_files ${dst}:${remdst}"
 	    fi
 
 	    # Phase 1.9: Create the host specific post-deployment script

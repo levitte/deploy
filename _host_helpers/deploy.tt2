@@ -1,5 +1,15 @@
 #! /bin/bash
 
+if [ -x /tmp/pre-deploy.[% feature %] ]; then
+    echo "=== Performing pre deployment tasks"
+    if ! /tmp/pre-deploy.[% feature %]; then
+	echo "*** Pre deployment tasks failed"
+	echo "*** Please figure out what went wrong and try again"
+	exit 1
+    fi
+fi
+
+echo "=== Deploying files"
 cd /
 tar --no-overwrite-dir -xzpf /tmp/deploy.[% feature %].tar.gz
 if [ -f /tmp/deploy-remove.[% feature %].txt ]; then

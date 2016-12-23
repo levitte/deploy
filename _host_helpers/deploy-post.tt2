@@ -18,4 +18,5 @@ rm -f \
    /tmp/deploy-remove.[% feature %].txt \
    /tmp/deploy.[% feature %] \
    /tmp/deploy-post.[% feature %] \
+   /tmp/pre-deploy.[% feature %] \
    /tmp/post-deploy.[% feature %]
