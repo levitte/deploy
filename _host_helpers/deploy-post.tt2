@@ -1,0 +1,21 @@
+#! /bin/bash
+
+if ! [ -x /tmp/post-deploy.[% feature %] ]; then
+    echo "[ there is no post deployment tasks script for [% feature %], assume none is needed ]"
+else
+    echo "=== Performing post deployment tasks"
+    if ! /tmp/post-deploy.[% feature %]; then
+	echo "*** Post deployment tasks failed"
+	echo "*** Please figure out what went wrong and try again"
+	exit 1
+    fi
+fi
+
+echo "=== Cleaning up"
+rm -f \
+   /tmp/deploy.[% feature %].tar.gz \
+   /tmp/deploy-diff.[% feature %] \
+   /tmp/deploy-remove.[% feature %].txt \
+   /tmp/deploy.[% feature %] \
+   /tmp/deploy-post.[% feature %] \
+   /tmp/post-deploy.[% feature %]

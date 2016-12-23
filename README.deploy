@@ -1,0 +1,201 @@
+Configuration
+=============
+
+
+Introduction
+------------
+
+'deploy' is a simple script to deploy configurations to a collection
+of hosts, with the paranoid sysadmin in mind.
+
+'deploy' is feature oriented, i.e. you configure for a specific
+feature and then deploy the configuration files to a set of hosts.
+
+'deploy' will also do absolutely nothing without giving the sysadmin a
+change to double check that the resulting configuration is sane.  This
+is done by copying all the new configuration files to the hosts,
+allowing the sysadmin to then do a diff against current configuration
+files before putting the new files in their intended location, and do
+a manual post-deployment step as well.
+
+
+Structure
+---------
+
+A basic feature (let's name it {feature} for the sake of example) is
+a local subdirectory named after it, with the following minimum
+content:
+
+{feature}
+  |
+  +-- HOSTS
+  +-- README
+  +-- src/
+
+The file HOSTS is a list of hosts where this feature is to be
+present.  See 'HOSTS' below for the syntax.
+
+The file README is instructions on how to handle this feature on the
+hosts.  It will be present on the hosts as /READM.{feature}, and
+should therefore be instructions for the admins that take care of the
+host.  At a minimum, it's recommended that it contain information on
+this configuration structure and how to access it, and then whatever
+an admin needs to know to handle the files post-deployment (see
+'Deployment' below).
+
+The directory src/ contains a copy of the file that's to appear on the
+hosts, from the root (/).  So for example, if you want to have the
+file /etc/blorp.conf, you'd have it as {feature}/src/etc/blorp.conf in
+the configuration (specifically, if the feature is named "blorp", the
+path would be blorp/src/etc/blorp.conf).
+
+Additionally, if there are some files that are unique to just one
+host, there may be a subdirectory named after that host present as
+well.  If we wanted to have some unique files for a host that we name
+{host1} here, the directory structure would look like this:
+
+{feature}
+  |
+  +-- HOSTS
+  +-- README
+  +-- src/
+  +-- {host1}/
+
+Note that only hosts that are mentioned in HOSTS will be cared for.
+Any other subdirectory (apart from src/) will be silently ignored.
+
+
+Feature names
+-------------
+
+Features can be named anything you want, EXCEPT:
+
+* the name may not start with an underscore (_).  Those directories
+  are reserved for deployment use.
+* the name MUST NOT contain a slash.  It will fail if it does.
+
+Other than that, keep in mind that the feature name will appear as
+part of a file name (the tarball that's being transferred, see
+'Deployment' below) and is transferred with scp, so if there's a
+character in the feature name that might affect the operations of
+deployment, simply do not use it, name your feature something better.
+
+
+HOSTS
+-----
+
+In the explanation here, "host name" SHALL be understood as the name
+of the A or AAAA (or possibly a CNAME ultimately leading to a A or
+AAAA) record for the host in DNS.
+
+In its simplest form, HOSTS is a list of hosts, one per line.
+
+However, there are cases when a host has an intended final name, but
+currently has a different name, or maybe no name at all.  It may be
+that it's still being set up and therefore isn't ready to become
+public yet.  If it has no name at all, it might simply be reached by
+it's IP address.  In such a case, the syntax of the line for that host
+is:
+
+    {finalname}:{currentaddr}
+
+{finalname} is the name it's going to have some time in the future,
+while {currentaddr} is its current host name or IP address.
+
+
+Deployment
+----------
+
+Features are deployed with the script 'deploy', at the top of the
+configuration file tree, i.e. the parent directory of the feature
+directories, as follows:
+
+    deploy [ -n ] {feature} [ {host1} ... ]
+
+or possibly, if you have the scripts in place (copied or symlinked):
+
+    ./deploy [ -n ] {feature} [ {host1} ... ]
+
+NOTE: if hosts are given on the command line, they will only be
+accepted if they exist in {feature}/HOSTS.  If not, 'deploy' will
+fail.
+
+It does the following for each host (called {host} below):
+
+  - set up a staging directory, let's call it {staging}
+  - if there is an executable script {feature}/pre-copy, execute it
+    with {staging} as current working directory.
+  - copy {feature}/README to {staging}/README.{feature}
+  - copy the contents of {feature}/src/ recursively to {staging}/
+  - look for any template file (files with names ending with '.tt2')
+    and process each of them resulting in a files with the same name
+    but without the '.tt2' ending, then remove the template files.
+    See 'Template files' below for more information.
+  - copy the contents of {feature}/{host}/ recursively to {staging}/  
+    NOTE: no template files expected here, all files are copied
+    verbatim.
+  - if there is an executable script {feature}/post-copy, execute it
+    with {staging} as current working directory.
+  - if there is a template {feature}/post-deploy.tt2 then process it,
+    resulting in a post-deploy script.
+  - create a tarball from the contents of {staging}/ (with {staging}/
+    is current working directory).
+  - unless '-n' was given, upload the tarball to the host, then clean
+    it away.
+  - unless '-n' is given, upload the following scripts from
+    _host_helpers/ as well: deploy-diff, deploy, deploy-post.
+  - unless '-n' is given and if there is an executable script
+    {feature}/post-deploy, upload it as well.
+  - unless '-n' is given and if there is a text file {feature}/REMOVE,
+    upload it as well.
+
+If '-n' is given, there is no uploading, the you will find the
+tarballs locally.  'deploy' will tell you the full path to each
+tarball.  This can be used to verify that 'deploy' does it's job
+correctly.
+
+If '-n' wasn't given, the tarball is /tmp/deploy.{feature}.tar.gz on
+all hosts, and the helper scripts from _host_helpers/ end up as
+/tmp/deploy-diff.{feature}, /tmp/deploy.{feature} and
+/tmp/deploy-post.{feature}, {feature}/post-deploy.tt2 or
+{feature}/post-deploy end up as /tmp/post-deploy.{feature} and
+{feature}/REMOVE ends up as /tmp/deploy-remove.{feature}.txt.
+'deploy' ends up the whole thing with an explanation of which hosts
+were deployed to and what to do next.
+
+
+Template files
+--------------
+
+The template files mentioned in 'Deployment' are processed with
+Template Toolkit, a powerful perl based templating system.  If you're
+not aquainted with that tookit, you may want to look here first:
+
+    http://www.template-toolkit.org/
+
+NOTE: you don't really need to know perl to make use of this
+templating system.
+
+As mentioned previously, template files have file names ending with
+'.tt2', and in addition to the template files in {feature}/src/, there
+may be a few other useful ones as well:
+
+- preamble.tt2 (in the top directory), is processed before the actual
+  template file, and may contain stuff that is common for more than
+  one feature.  It typically contains variable assignments.
+- {feature}/preamble.tt2 is also processed before the actual template
+  file, and may contain stuff that are needed to process the actual
+  template file, for example assignment of variables with host
+  specific values.
+- {feature}/postamble.tt2 is processed after the actual template file.
+- postamble.tt2 is also processed after the actual template file.
+
+The exact process looks like this
+
+    tpage --define host={host} --defined feature={feature} \
+          --pre_process preamble.tt2 --pre_process {feature}/preamble.tt2 \
+          --post_process postamble.tt2 --post_process {feature}/postamble.tt2 \
+          {staging}/.../{file}.tt2 > {staging}/.../{file}
+
+Of course, each --pre_process and --post_process will only be there if
+the corresponding file exists.

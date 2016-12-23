@@ -1,0 +1,299 @@
+#! /bin/bash
+
+# Configurable parameters
+# If the feature needs different parameters values, they can be set in
+# the file {feature}/defaults, which is sourced a little later on.  This
+# defaults file SHOULD NOT TOUCH ANY OTHER VARIABLE than these, or hell
+# may break loose.
+
+TAR_OWNER=root:0
+TAR_GROUP=root:0
+
+# End of configurable parameters
+
+here=${DEPLOY_DIR:-$(pwd)}
+
+save_args="$*"
+upload=true
+while [ $# -gt 0 ]; do
+    case "$1" in
+	-n )
+	    upload=false
+	    ;;
+	* )
+	    break
+	    ;;
+    esac
+    shift
+done
+
+feature=$1; shift
+hosts="$*"
+
+if echo "$feature" | egrep -q '^_|[/[:space:]]'; then
+    echo 'Underscore (_), spaces and slashes (/) not permitted in feature names'
+    exit 1
+fi
+
+if cd $here/$feature; then
+    abshere=$(pwd)
+    if [ -f HOSTS -a -f README ]; then
+	if [ -z "$hosts" ]; then
+	    hosts=$(cat HOSTS | grep -v '^#' | cut -f1 -d:)
+	    hosts=$(for h in $hosts; do
+			if echo $h | grep '^\?' > /dev/null; then
+			    h=$(echo $h | cut -f2 -d'?')
+			    if getent hosts $h > /dev/null; then
+				echo $h
+			    fi
+			else
+			    echo $h
+			fi
+		    done)
+	fi
+
+	# Phase 0: Checks
+	echo >&2 "===== Phase 0: Checks"
+	fqdnhosts=""
+	for h in $hosts; do
+	    if ! ( echo $h | grep -q -e "\\." ); then
+		if hh=$(grep -e "^$h\\." HOSTS) && ( echo "$h" | grep ' ' ); then
+		    echo >&2 "'$h' isn't unique enough"
+		    exit 1
+		fi
+		h=$hh
+	    else
+		h=${h//./\\.}
+		h=$(egrep -e "^\\??$h(:|\$)" HOSTS | sed -e 's|^\?||')
+	    fi
+	    finalhost=$(echo $h | cut -f1 -d:)
+	    currenthost=$(echo $h | cut -f2 -d:)
+	    if [ -z "$currenthost" ]; then currenthost=$finalhost; fi
+	    if [ -z "$finalhost" ]; then
+		echo >&2 "Error: $finalhost doesn't exist in $feature/HOSTS"
+		exit 1
+	    fi
+	    fqdnhosts=$(echo $fqdnhosts ${finalhost}:${currenthost})
+	done
+
+	if $upload; then
+	    bail_out=/bin/false
+	    for h in $fqdnhosts; do
+		finalhost=$(echo $h | cut -f1 -d:)
+		currenthost=$(echo $h | cut -f2 -d:)
+		remacct=${REMACCT:+${REMACCT}\@}
+
+		if ! ssh ${REMACCT:+${REMACCT}\@}${currenthost} 'exit 0'; then
+		    echo >&2 "Failed: ssh ${REMACCT:+${REMACCT}\@}${currenthost}"
+		    bail_out=/bin/true
+		fi
+	    done
+	    if $bail_out; then
+		if [ -z "${REMACCT}" ]; then
+		    echo >&2 "You may want to try setting REMACCT to your username on that host:"
+		    echo >&2 ""
+		    echo >&2 "    REMACCT=username $0 $save_args"
+		fi
+		exit 1
+	    fi
+	fi
+
+	if [ -d src ]; then
+	    if ! type tpage >/dev/null; then
+		echo >&2 "Lacking the command 'tpage'.  Please install Template Toolkit"
+		echo >&2 "(available on Debian with the package libtemplate-perl)"
+		echo >&2 "(available through CPAN with the package Template)"
+		exit 1
+	    fi
+	fi
+
+	staging=/tmp/deploy.$$
+
+	if [ -f defaults ]; then
+	    . ./defaults
+	fi
+
+	if ! mkdir $staging; then
+	    echo >&2 "Error: couldn't create directory $staging"
+	    exit 2
+	fi
+
+	tpage_extra=""
+	for pp in $abshere/../preamble.tt2 $abshere/preamble.tt2; do
+	    if [ -f "$pp" ]; then
+		tpage_extra="$tpage_extra --pre_process='$pp'"
+	    fi
+	done
+	for pp in $abshere/postamble.tt2 $abshere/../postamble.tt2; do
+	    if [ -f "$pp" ]; then
+		tpage_extra="$tpage_extra --post_process='$pp'"
+	    fi
+	done
+
+	deploy_files=
+
+	# Phase 1: Copy files into tarball
+	echo >&2 "===== Phase 1: Preparing files"
+	for h in $fqdnhosts; do
+	    finalhost=$(echo $h | cut -f1 -d:)
+	    currenthost=$(echo $h | cut -f2 -d:)
+	    local_tarball=/tmp/deploy.$feature.$finalhost.tar.gz
+	    remote_tarball=/tmp/deploy.$feature.tar.gz
+	    rm -f $local_tarball
+
+	    # Phase 1.1: Run the pre-copy script
+	    if [ -x pre-copy ]; then
+		( cd $staging; $abshere/pre-copy common $finalhost )
+	    fi
+
+	    # Phase 1.2: Copy common files into staging directory
+	    cp README $staging/README.$feature
+	    
+	    # Phase 1.3: Copy non-template source files into staging
+	    # directory, and process template source files with results
+	    # in staging directory
+	    if [ -d src ]; then
+		( cd src; tar -cf - $(git ls-tree -r --name-only master) ) | \
+		    ( cd $staging; tar -xpf - )
+
+		tpage_cmd="tpage --define host='$finalhost' --define feature='$feature' --define staging='$staging'"
+		find $staging -name '*.tt2' -type f | while read src; do
+		    src=$(dirname "$src")/$(basename "$src")
+		    dst=$(dirname "$src")/$(basename "$src" .tt2)
+		    if [ "$src" != "$dst" ]; then
+			eval "$tpage_cmd $tpage_extra '$src'" > "$dst"
+			chmod --reference="$src" "$dst"
+			rm "$src"
+		    fi
+		done
+	    fi
+
+	    # Phase 1.4: Copy host specific files into staging directory
+	    # Note: they will never be templates!
+	    if [ -d $finalhost ]; then
+		( cd $finalhost; tar -cf - $(git ls-tree -r --name-only master) ) | \
+		    ( cd $staging; tar -xpf - )
+	    fi
+
+	    # Phase 1.8: Run post-copy
+	    if [ -x post-copy ]; then
+		( cd $staging; $abshere/post-copy common $finalhost )
+	    fi
+
+	    # Phase 1.9: Create the host specific post-deployment script
+	    if [ -f post-deploy.tt2 ]; then
+		dst=/tmp/post-deploy.$feature.$finalhost
+		remdst=/tmp/post-deploy.$feature
+		eval "tpage --define host='$finalhost' --define feature='$feature' --define staging='$staging' $tpage_extra post-deploy.tt2" > $dst
+		chmod a+x $dst
+		deploy_files="$deploy_files ${dst}:${remdst}"
+	    elif [ -x post-deploy ]; then
+		dst=/tmp/post-deploy.$feature.$finalhost
+		remdst=/tmp/post-deploy.$feature
+		cp post-deploy $dst
+		deploy_files="$deploy_files ${dst}:${remdst}"
+	    fi
+
+	    # Phase 1.10: Create the local tarball and remove staging directory
+	    (
+		cd $staging
+		tar --owner=$TAR_OWNER --group=$TAR_GROUP -czf $local_tarball *
+	    ) && rm -rf $staging/*
+	    deploy_files="$deploy_files ${local_tarball}:${remote_tarball}"
+	done
+
+	# Phase 1.20: Create the deployment scripts
+	for src in $abshere/../_host_helpers/*.tt2; do
+	    dst=/tmp/$(basename $src .tt2).$feature
+	    eval "tpage --define host='$finalhost' --define feature='$feature' $tpage_extra '$src'" > $dst
+	    chmod a+x $dst
+	    deploy_files="$deploy_files $dst"
+	done
+
+	# Phase 1.21: Copy deploy-remove from REMOVE
+	if [ -f REMOVE ]; then
+	    dst=/tmp/deploy-remove.$feature.txt
+	    cp REMOVE $dst
+	    deploy_files="$deploy_files $dst"
+	fi
+
+	# Phase 1.99: Cleanup
+	rmdir $staging
+
+	if $upload; then
+	    # Phase 2: Copy tarballs to intended hosts
+	    echo >&2 "===== Phase 2: Copying files to remote hosts"
+	    successhosts=""
+	    for h in $fqdnhosts; do
+		finalhost=$(echo $h | cut -f1 -d:)
+		currenthost=$(echo $h | cut -f2 -d:)
+
+		echo -n "Copying deployment tarball and deployment files to $currenthost..."
+		if (
+		    set -e
+
+		    for f in $deploy_files; do
+			local_file=$(echo $f | cut -f1 -d:)
+			remote_file=$(echo $f | cut -f2 -d:)
+			if [ -z "$remote_file" ]; then
+			    remote_file=$(basename $local_file);
+			fi
+
+			if [ "$remote_file" == "$local_file" \
+			     -o "$remote_file.$finalhost" == "$local_file" ]; then
+			    rsync -a $local_file ${REMACCT:+${REMACCT}\@}${currenthost}:$remote_file
+			fi
+		    done
+		); then
+		    echo done
+		    successhosts=$(echo $successhosts $currenthost)
+		else
+		    echo FAIL
+		fi
+		for f in $deploy_files; do
+		    local_file=$(echo $f | cut -f1 -d:)
+		    rm $local_file
+		done
+	    done
+
+	    # Phase 3: Final instructions
+	    echo >&2 "===== Phase 3: Final instructions"
+	    if [ -n "$successhosts" ]; then
+		cat <<EOF
+You will find the tarball "deploy.$feature.tar.gz" in /tmp/ on each of
+EOF
+		echo $successhosts
+		cat <<EOF
+
+Please verify that the files to be deployed are what you expect.  You do so
+by running the following on each host and studying the resulting diff output:
+
+	/tmp/deploy-diff.$feature
+
+If you're satisfied with what you see, please deploy as follows:
+
+	/tmp/deploy.$feature
+
+and perform post deployment tasks as follows (this will also clean away all
+deployment files if the post deployment tasks themselves didn't fail):
+
+	/tmp/deploy-post.$feature
+
+EOF
+	    else
+		cat <<EOF
+Copying failed on all hosts.  Please fix the problem, or if someone else
+was deploying at the same time as you, simply wait a moment
+EOF
+	    fi
+	else
+	    echo >&2 "No upload selected, tarballs and deploy scripts preserved:"
+	    for f in $deploy_files; do
+		ls $(echo $f | cut -f1 -d:) >&2
+	    done
+	fi
+    else
+	echo $feature lacking HOSTS and README
+	exit 1
+    fi
+fi

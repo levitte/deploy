@@ -1,0 +1,7 @@
+#! /bin/bash
+
+cd /
+tar --no-overwrite-dir -xzpf /tmp/deploy.[% feature %].tar.gz
+if [ -f /tmp/deploy-remove.[% feature %].txt ]; then
+    cat /tmp/deploy-remove.[% feature %].txt | xargs rm -f
+fi

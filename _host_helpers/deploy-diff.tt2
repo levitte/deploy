@@ -1,0 +1,17 @@
+#! /bin/bash
+
+cd /
+tar -tzf /tmp/deploy.[% feature %].tar.gz | while read F; do
+    if [ "${F%/}" = "$F" ] \
+	   && [ "$F" != "tmp/pre-deploy.[% feature %]" ] \
+	   && [ "$F" != "tmp/post-deploy.[% feature %]" ]; then
+	tar -xOzf /tmp/deploy.[% feature %].tar.gz "$F" | diff -u "$F" -
+    fi
+done
+if [ -f /tmp/deploy-remove.[% feature %].txt ]; then
+    cat /tmp/deploy-remove.[% feature %].txt | while read F; do
+	if [ -f "$F" ]; then
+	    diff -u "$F" /dev/null
+	fi
+    done
+fi
