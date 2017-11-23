@@ -31,6 +31,21 @@ done
 feature=$1; shift
 hosts="$*"
 
+if ! tpage < /dev/null 2> /dev/null; then
+    cat >&2 <<EOF
+Template Toolkit is required.
+On a Debian based distribution, install libtemplate-perl
+On a RPM base distribution, install perl-Template-Toolkit
+(available through CPAN with the package Template)
+EOF
+    exit 1
+fi
+
+if [ -z "$feature" ]; then
+    echo 'No feature name given'
+    exit 1
+fi
+
 if echo "$feature" | egrep -q '^_|[/[:space:]]'; then
     echo 'Underscore (_), spaces and slashes (/) not permitted in feature names'
     exit 1
@@ -95,15 +110,6 @@ if cd $here/$feature; then
 		    echo >&2 ""
 		    echo >&2 "    REMACCT=username $0 $save_args"
 		fi
-		exit 1
-	    fi
-	fi
-
-	if [ -d src ]; then
-	    if ! type tpage >/dev/null; then
-		echo >&2 "Lacking the command 'tpage'.  Please install Template Toolkit"
-		echo >&2 "(available on Debian with the package libtemplate-perl)"
-		echo >&2 "(available through CPAN with the package Template)"
 		exit 1
 	    fi
 	fi
