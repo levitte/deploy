@@ -165,7 +165,7 @@ if cd $here/$feature; then
 
 	    # Phase 1.1: Run the pre-copy script
 	    if [ -x pre-copy ]; then
-		( cd $data; $abshere/pre-copy common $finalhost )
+		( cd $data; $abshere/pre-copy )
 	    fi
 
 	    # Phase 1.2: Copy common files into staging directory
@@ -198,7 +198,7 @@ if cd $here/$feature; then
 
 	    # Phase 1.7: Run post-copy
 	    if [ -x post-copy ]; then
-		( cd $data; $abshere/post-copy common $finalhost )
+		( cd $data; $abshere/post-copy )
 	    fi
 
 	    # Phase 1.8: Create the host specific pre-deployment script
