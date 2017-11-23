@@ -148,6 +148,11 @@ if cd $here/$feature; then
 	    remote_tarball=/tmp/deploy.$feature.tar.gz
 	    rm -f $local_tarball
 
+	    tpage_cmd=$(echo tpage \
+			     "--define host='$finalhost'" \
+			     "--define feature='$feature'" \
+			     "--define staging='$staging'")
+
 	    # Phase 1.1: Run the pre-copy script
 	    if [ -x pre-copy ]; then
 		( cd $staging; $abshere/pre-copy common $finalhost )
@@ -163,7 +168,6 @@ if cd $here/$feature; then
 		( cd src; tar -cf - $(git ls-tree -r --name-only master) ) | \
 		    ( cd $staging; tar -xpf - )
 
-		tpage_cmd="tpage --define host='$finalhost' --define feature='$feature' --define staging='$staging'"
 		find $staging -name '*.tt2' -type f | while read src; do
 		    src=$(dirname "$src")/$(basename "$src")
 		    dst=$(dirname "$src")/$(basename "$src" .tt2)
@@ -191,7 +195,7 @@ if cd $here/$feature; then
 	    if [ -f pre-deploy.tt2 ]; then
 		dst=/tmp/pre-deploy.$feature.$finalhost
 		remdst=/tmp/pre-deploy.$feature
-		eval "tpage --define host='$finalhost' --define feature='$feature' --define staging='$staging' $tpage_extra pre-deploy.tt2" > $dst
+		eval "$tpage_cmd $tpage_extra pre-deploy.tt2" > $dst
 		chmod a+x $dst
 		deploy_files="$deploy_files ${dst}:${remdst}"
 	    elif [ -x pre-deploy ]; then
@@ -205,7 +209,7 @@ if cd $here/$feature; then
 	    if [ -f post-deploy.tt2 ]; then
 		dst=/tmp/post-deploy.$feature.$finalhost
 		remdst=/tmp/post-deploy.$feature
-		eval "tpage --define host='$finalhost' --define feature='$feature' --define staging='$staging' $tpage_extra post-deploy.tt2" > $dst
+		eval "$tpage_cmd $tpage_extra post-deploy.tt2" > "$dst"
 		chmod a+x $dst
 		deploy_files="$deploy_files ${dst}:${remdst}"
 	    elif [ -x post-deploy ]; then
@@ -226,7 +230,7 @@ if cd $here/$feature; then
 	# Phase 1.20: Create the deployment scripts
 	for src in $scriptdir/_host_helpers/*.tt2; do
 	    dst=/tmp/$(basename $src .tt2).$feature
-	    eval "tpage --define host='$finalhost' --define feature='$feature' $tpage_extra '$src'" > $dst
+	    eval "$tpage_cmd $tpage_extra '$src'" > $dst
 	    chmod a+x $dst
 	    deploy_files="$deploy_files $dst"
 	done
