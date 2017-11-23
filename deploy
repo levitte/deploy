@@ -137,38 +137,56 @@ if cd $here/$feature; then
 	    fi
 	done
 
-	deploy_files=
-
-	# Phase 1: Copy files into tarball
+	# Phase 1: Prepare files to be transfered
 	echo >&2 "===== Phase 1: Preparing files"
 	for h in $fqdnhosts; do
 	    finalhost=$(echo $h | cut -f1 -d:)
 	    currenthost=$(echo $h | cut -f2 -d:)
-	    local_tarball=/tmp/deploy.$feature.$finalhost.tar.gz
-	    remote_tarball=/tmp/deploy.$feature.tar.gz
-	    rm -f $local_tarball
+	    data=$staging/$finalhost-data
+	    control=$staging/$finalhost-control
+	    tarball=$control/deploy.$feature.tar.gz
+	    rm -f $tarball
+
+	    if ! mkdir $data; then
+		echo >&2 "Error: couldn't create directory $data"
+		exit 2
+	    fi
+
+	    if ! mkdir $control; then
+		echo >&2 "Error: couldn't create directory $control"
+		exit 2
+	    fi
 
 	    tpage_cmd=$(echo tpage \
 			     "--define host='$finalhost'" \
 			     "--define feature='$feature'" \
-			     "--define staging='$staging'")
+			     "--define data='$data'" \
+			     "--define control='$control'")
 
 	    # Phase 1.1: Run the pre-copy script
 	    if [ -x pre-copy ]; then
-		( cd $staging; $abshere/pre-copy common $finalhost )
+		( cd $data; $abshere/pre-copy common $finalhost )
 	    fi
 
 	    # Phase 1.2: Copy common files into staging directory
-	    cp README $staging/README.$feature
+	    cp README $data/README.$feature
 	    
-	    # Phase 1.3: Copy non-template source files into staging
-	    # directory, and process template source files with results
-	    # in staging directory
+	    # Phase 1.3: Copy common source files into staging directory
 	    if [ -d src ]; then
 		( cd src; tar -cf - $(git ls-tree -r --name-only master) ) | \
-		    ( cd $staging; tar -xpf - )
+		    ( cd $data; tar -xpf - )
+	    fi
 
-		find $staging -name '*.tt2' -type f | while read src; do
+	    # Phase 1.4: Copy host specific files into staging directory
+	    if [ -d $finalhost ]; then
+		( cd $finalhost; tar -cf - $(git ls-tree -r --name-only master) ) | \
+		    ( cd $data; tar -xpf - )
+	    fi
+
+	    # Phase 1.5: process template source files in staging directory
+	    # and replace them with their respective result
+	    find $data -name '*.tt2' -type f | \
+		while read src; do
 		    src=$(dirname "$src")/$(basename "$src")
 		    dst=$(dirname "$src")/$(basename "$src" .tt2)
 		    if [ "$src" != "$dst" ]; then
@@ -177,73 +195,58 @@ if cd $here/$feature; then
 			rm "$src"
 		    fi
 		done
-	    fi
-
-	    # Phase 1.4: Copy host specific files into staging directory
-	    # Note: they will never be templates!
-	    if [ -d $finalhost ]; then
-		( cd $finalhost; tar -cf - $(git ls-tree -r --name-only master) ) | \
-		    ( cd $staging; tar -xpf - )
-	    fi
 
 	    # Phase 1.7: Run post-copy
 	    if [ -x post-copy ]; then
-		( cd $staging; $abshere/post-copy common $finalhost )
+		( cd $data; $abshere/post-copy common $finalhost )
 	    fi
 
 	    # Phase 1.8: Create the host specific pre-deployment script
 	    if [ -f pre-deploy.tt2 ]; then
-		dst=/tmp/pre-deploy.$feature.$finalhost
-		remdst=/tmp/pre-deploy.$feature
-		eval "$tpage_cmd $tpage_extra pre-deploy.tt2" > $dst
+		src=pre-deploy.tt2
+		dst=$control/pre-deploy.$feature
+		eval "$tpage_cmd $tpage_extra '$src'" > "$dst"
 		chmod a+x $dst
-		deploy_files="$deploy_files ${dst}:${remdst}"
 	    elif [ -x pre-deploy ]; then
-		dst=/tmp/pre-deploy.$feature.$finalhost
-		remdst=/tmp/pre-deploy.$feature
+		dst=$control/pre-deploy.$feature
 		cp pre-deploy $dst
-		deploy_files="$deploy_files ${dst}:${remdst}"
+		chmod a+x $dst
 	    fi
 
 	    # Phase 1.9: Create the host specific post-deployment script
 	    if [ -f post-deploy.tt2 ]; then
-		dst=/tmp/post-deploy.$feature.$finalhost
-		remdst=/tmp/post-deploy.$feature
-		eval "$tpage_cmd $tpage_extra post-deploy.tt2" > "$dst"
+		src=post-deploy.tt2
+		dst=$control/post-deploy.$feature
+		eval "$tpage_cmd $tpage_extra '$src'" > "$dst"
 		chmod a+x $dst
-		deploy_files="$deploy_files ${dst}:${remdst}"
 	    elif [ -x post-deploy ]; then
-		dst=/tmp/post-deploy.$feature.$finalhost
-		remdst=/tmp/post-deploy.$feature
+		dst=$control/post-deploy.$feature
 		cp post-deploy $dst
-		deploy_files="$deploy_files ${dst}:${remdst}"
+		chmod a+x $dst
 	    fi
 
 	    # Phase 1.10: Create the local tarball and remove staging directory
 	    (
-		cd $staging
-		tar --owner=$TAR_OWNER --group=$TAR_GROUP -czf $local_tarball *
-	    ) && rm -rf $staging/*
-	    deploy_files="$deploy_files ${local_tarball}:${remote_tarball}"
+		cd $data
+		tar --owner=$TAR_OWNER --group=$TAR_GROUP -czf $tarball *
+	    )
+
+	    # Phase 1.20: Create the deployment scripts
+	    for src in $scriptdir/_host_helpers/*.tt2; do
+		dst=$control/$(basename $src .tt2).$feature
+		eval "$tpage_cmd $tpage_extra '$src'" > $dst
+		chmod a+x $dst
+	    done
+
+	    # Phase 1.21: Copy deploy-remove from REMOVE
+	    if [ -f REMOVE ]; then
+		dst=$control/deploy-remove.$feature.txt
+		cp REMOVE $dst
+	    fi
+
+	    # Phase 1.99: Cleanup
+	    rm -rf $data
 	done
-
-	# Phase 1.20: Create the deployment scripts
-	for src in $scriptdir/_host_helpers/*.tt2; do
-	    dst=/tmp/$(basename $src .tt2).$feature
-	    eval "$tpage_cmd $tpage_extra '$src'" > $dst
-	    chmod a+x $dst
-	    deploy_files="$deploy_files $dst"
-	done
-
-	# Phase 1.21: Copy deploy-remove from REMOVE
-	if [ -f REMOVE ]; then
-	    dst=/tmp/deploy-remove.$feature.txt
-	    cp REMOVE $dst
-	    deploy_files="$deploy_files $dst"
-	fi
-
-	# Phase 1.99: Cleanup
-	rmdir $staging
 
 	if $upload; then
 	    # Phase 2: Copy tarballs to intended hosts
@@ -252,33 +255,16 @@ if cd $here/$feature; then
 	    for h in $fqdnhosts; do
 		finalhost=$(echo $h | cut -f1 -d:)
 		currenthost=$(echo $h | cut -f2 -d:)
+		control=$staging/$finalhost-control
 
 		echo -n "Copying deployment tarball and deployment files to $currenthost..."
-		if (
-		    set -e
-
-		    for f in $deploy_files; do
-			local_file=$(echo $f | cut -f1 -d:)
-			remote_file=$(echo $f | cut -f2 -d:)
-			if [ -z "$remote_file" ]; then
-			    remote_file=$(basename $local_file);
-			fi
-
-			if [ "$remote_file" == "$local_file" \
-			     -o "$remote_file.$finalhost" == "$local_file" ]; then
-			    rsync -a $local_file ${REMACCT:+${REMACCT}\@}${currenthost}:$remote_file
-			fi
-		    done
-		); then
+		if scp -q $control/* ${REMACCT:+${REMACCT}\@}${currenthost}:/tmp/; then
 		    echo done
 		    successhosts=$(echo $successhosts $currenthost)
 		else
 		    echo FAIL
 		fi
-		for f in $deploy_files; do
-		    local_file=$(echo $f | cut -f1 -d:)
-		    rm $local_file
-		done
+		rm -rf $control
 	    done
 
 	    # Phase 3: Final instructions
@@ -311,10 +297,16 @@ Copying failed on all hosts.  Please fix the problem, or if someone else
 was deploying at the same time as you, simply wait a moment
 EOF
 	    fi
+	    rmdir $staging
 	else
 	    echo >&2 "No upload selected, tarballs and deploy scripts preserved:"
-	    for f in $deploy_files; do
-		ls $(echo $f | cut -f1 -d:) >&2
+	    for h in $fqdnhosts; do
+		finalhost=$(echo $h | cut -f1 -d:)
+		currenthost=$(echo $h | cut -f2 -d:)
+		control=$staging/$finalhost-control
+		echo >&2
+		echo >&2 "${control}:"
+		ls $control >&2
 	    done
 	fi
     else
