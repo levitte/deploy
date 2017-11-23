@@ -70,36 +70,34 @@ if cd $here/$feature; then
 
 	# Phase 0: Checks
 	echo >&2 "===== Phase 0: Checks"
-	fqdnhosts=""
+	declare -A fqdnhosts
+	fqdnhosts=()
 	for h in $hosts; do
 	    if ! ( echo $h | grep -q -e "\\." ); then
 		if hh=$(grep -e "^$h\\." HOSTS) && ( echo "$h" | grep ' ' ); then
 		    echo >&2 "'$h' isn't unique enough"
 		    exit 1
 		fi
-		h=$hh
 	    else
-		h=${h//./\\.}
-		h=$(egrep -e "^\\??$h(:|\$)" HOSTS | sed -e 's|^\?||')
+		hh=${h//./\\.}
+		hh=$(egrep -e "^\\??$hh(:|\$)" HOSTS | sed -e 's|^\?||')
 	    fi
-	    finalhost=$(echo $h | cut -f1 -d:)
-	    currenthost=$(echo $h | cut -f2 -d:)
+	    finalhost=$(echo $hh | cut -f1 -d:)
+	    currenthost=$(echo $hh | cut -f2 -d:)
 	    if [ -z "$currenthost" ]; then currenthost=$finalhost; fi
 	    if [ -z "$finalhost" ]; then
-		echo >&2 "Error: $finalhost doesn't exist in $feature/HOSTS"
+		echo >&2 "Error: $h doesn't exist in $feature/HOSTS"
 		exit 1
 	    fi
-	    fqdnhosts=$(echo $fqdnhosts ${finalhost}:${currenthost})
+	    fqdnhosts[$currenthost]=$(echo ${fqdnhosts[$currenthost]} ${finalhost})
 	done
 
 	if $upload; then
 	    bail_out=/bin/false
-	    for h in $fqdnhosts; do
-		finalhost=$(echo $h | cut -f1 -d:)
-		currenthost=$(echo $h | cut -f2 -d:)
+	    for currenthost in ${!fqdnhosts[*]}; do
 		remacct=${REMACCT:+${REMACCT}\@}
 
-		if ! ssh ${REMACCT:+${REMACCT}\@}${currenthost} 'exit 0'; then
+		if ! ssh -o ConnectTimeout=2 ${REMACCT:+${REMACCT}\@}${currenthost} 'exit 0'; then
 		    echo >&2 "Failed: ssh ${REMACCT:+${REMACCT}\@}${currenthost}"
 		    bail_out=/bin/true
 		fi
@@ -139,11 +137,9 @@ if cd $here/$feature; then
 
 	# Phase 1: Prepare files to be transfered
 	echo >&2 "===== Phase 1: Preparing files"
-	for h in $fqdnhosts; do
-	    finalhost=$(echo $h | cut -f1 -d:)
-	    currenthost=$(echo $h | cut -f2 -d:)
-	    data=$staging/$finalhost-data
-	    control=$staging/$finalhost-control
+	for currenthost in ${!fqdnhosts[*]}; do
+	    data=$staging/$currenthost-data
+	    control=$staging/$currenthost-control
 	    tarball=$control/deploy.$feature.tar.gz
 	    rm -f $tarball
 
@@ -158,7 +154,7 @@ if cd $here/$feature; then
 	    fi
 
 	    tpage_cmd=$(echo tpage \
-			     "--define host='$finalhost'" \
+			     "--define hosts='${fqdnhosts[$currenthost]}'" \
 			     "--define feature='$feature'" \
 			     "--define data='$data'" \
 			     "--define control='$control'")
@@ -178,10 +174,14 @@ if cd $here/$feature; then
 	    fi
 
 	    # Phase 1.4: Copy host specific files into staging directory
-	    if [ -d $finalhost ]; then
-		( cd $finalhost; tar -cf - $(git ls-tree -r --name-only master) ) | \
-		    ( cd $data; tar -xpf - )
-	    fi
+	    for h in $( for x in $currenthost ${fqdnhosts[$currenthost]}; do \
+			    echo $x; \
+			done | sort | uniq ); do
+		if [ -d $h ]; then
+		    ( cd $h; tar -cf - $(git ls-tree -r --name-only master) ) | \
+			( cd $data; tar -xpf - )
+		fi
+	    done
 
 	    # Phase 1.5: process template source files in staging directory
 	    # and replace them with their respective result
@@ -252,10 +252,8 @@ if cd $here/$feature; then
 	    # Phase 2: Copy tarballs to intended hosts
 	    echo >&2 "===== Phase 2: Copying files to remote hosts"
 	    successhosts=""
-	    for h in $fqdnhosts; do
-		finalhost=$(echo $h | cut -f1 -d:)
-		currenthost=$(echo $h | cut -f2 -d:)
-		control=$staging/$finalhost-control
+	    for currenthost in ${!fqdnhosts[*]}; do
+		control=$staging/$currenthost-control
 
 		echo -n "Copying deployment tarball and deployment files to $currenthost..."
 		if scp -q $control/* ${REMACCT:+${REMACCT}\@}${currenthost}:/tmp/; then
@@ -300,10 +298,8 @@ EOF
 	    rmdir $staging
 	else
 	    echo >&2 "No upload selected, tarballs and deploy scripts preserved:"
-	    for h in $fqdnhosts; do
-		finalhost=$(echo $h | cut -f1 -d:)
-		currenthost=$(echo $h | cut -f2 -d:)
-		control=$staging/$finalhost-control
+	    for currenthost in ${!fqdnhosts[*]}; do
+		control=$staging/$currenthost-control
 		echo >&2
 		echo >&2 "${control}:"
 		ls $control >&2

@@ -91,16 +91,24 @@ AAAA) record for the host in DNS.
 In its simplest form, HOSTS is a list of hosts, one per line.
 
 However, there are cases when a host has an intended final name, but
-currently has a different name, or maybe no name at all.  It may be
-that it's still being set up and therefore isn't ready to become
-public yet.  If it has no name at all, it might simply be reached by
-it's IP address.  In such a case, the syntax of the line for that host
-is:
+currently has a different name, or maybe no name at all.
 
-    {finalname}:{currentaddr}
+There are also cases when several names are served on the same server,
+and should therefore be treated as a group of names that are processed
+all at the same time.
 
-{finalname} is the name it's going to have some time in the future,
-while {currentaddr} is its current host name or IP address.
+In all these cases, the actual server where the final host is served
+can be seen as a staging server.  To specify a staging server, use
+this syntax:
+
+    {finalname}:{stagingserver}
+
+In the case of several names being served on the same server, simply
+use several lines with the same staging server name:
+
+    {finalname1}:{stagingserver}
+    {finalname2}:{stagingserver}
+    {finalname3}:{stagingserver}
 
 
 Deployment
@@ -130,7 +138,9 @@ It does the following for each host (called {host} below):
     with {data} as current working directory.
   - copy {feature}/README to {data}/README.{feature}
   - copy the contents of {feature}/src/ recursively to {data}/
-  - copy the contents of {feature}/{host}/ recursively to {data}/  
+  - copy the contents of {feature}/{host}/ recursively to {data}/.
+    Note that in this specific case, {host} is both the final host
+    name and the staging server name.
   - look for any template file (files with names ending with '.tt2')
     in {data} and process each of them resulting in a files with the
     same name but without the '.tt2' ending, then remove the template
