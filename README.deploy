@@ -122,32 +122,34 @@ fail.
 
 It does the following for each host (called {host} below):
 
-  - set up a staging directory, let's call it {staging}
+  - set up two staging directory, let's call them {data} and {control}.
+    {data} is used as temporary storage for the deployed files.
+    {control} is used to store the deployment scripts and the tarball
+    with the deployed files.
   - if there is an executable script {feature}/pre-copy, execute it
-    with {staging} as current working directory.
-  - copy {feature}/README to {staging}/README.{feature}
-  - copy the contents of {feature}/src/ recursively to {staging}/
+    with {data} as current working directory.
+  - copy {feature}/README to {data}/README.{feature}
+  - copy the contents of {feature}/src/ recursively to {data}/
+  - copy the contents of {feature}/{host}/ recursively to {data}/  
   - look for any template file (files with names ending with '.tt2')
-    and process each of them resulting in a files with the same name
-    but without the '.tt2' ending, then remove the template files.
-    See 'Template files' below for more information.
-  - copy the contents of {feature}/{host}/ recursively to {staging}/  
-    NOTE: no template files expected here, all files are copied
-    verbatim.
+    in {data} and process each of them resulting in a files with the
+    same name but without the '.tt2' ending, then remove the template
+    files.  See 'Template files' below for more information.
   - if there is an executable script {feature}/post-copy, execute it
-    with {staging} as current working directory.
+    with {data} as current working directory.
+  - if there is a template {feature}/pre-deploy.tt2 then process it,
+    resulting in {control}/pre-deploy.{feature}.
   - if there is a template {feature}/post-deploy.tt2 then process it,
-    resulting in a post-deploy script.
-  - create a tarball from the contents of {staging}/ (with {staging}/
-    is current working directory).
-  - unless '-n' was given, upload the tarball to the host, then clean
-    it away.
-  - unless '-n' is given, upload the following scripts from
-    _host_helpers/ as well: deploy-diff, deploy, deploy-post.
-  - unless '-n' is given and if there is an executable script
-    {feature}/post-deploy, upload it as well.
-  - unless '-n' is given and if there is a text file {feature}/REMOVE,
-    upload it as well.
+    resulting in {control}/post-deploy.{feature}.
+  - create a tarball from the contents of {data}/ (with {data}/ being
+    the current working directory).
+    The result is {control}/deploy.{feature}.tar.gz
+  - create the main deployment scripts from _host_helpers/*.tt2,
+    the result ending up in {control}
+  - if there is a file {feature}/REMOVE, copy it to a list of files
+    to be removed, {control}/deploy-remove.{feature}.txt.
+  - unless '-n' was given, upload everything from {control}/ to
+    /tmp/ on the remote hosts.
 
 If '-n' is given, there is no uploading, the you will find the
 tarballs locally.  'deploy' will tell you the full path to each
@@ -160,7 +162,7 @@ all hosts, and the helper scripts from _host_helpers/ end up as
 /tmp/deploy-post.{feature}, {feature}/post-deploy.tt2 or
 {feature}/post-deploy end up as /tmp/post-deploy.{feature} and
 {feature}/REMOVE ends up as /tmp/deploy-remove.{feature}.txt.
-'deploy' ends up the whole thing with an explanation of which hosts
+'deploy' ends the whole thing with an explanation of which hosts
 were deployed to and what to do next.
 
 
@@ -177,8 +179,8 @@ NOTE: you don't really need to know perl to make use of this
 templating system.
 
 As mentioned previously, template files have file names ending with
-'.tt2', and in addition to the template files in {feature}/src/, there
-may be a few other useful ones as well:
+'.tt2', and in addition to the template files in {feature}/src/ and
+{feature}/{host}/, there may be a few other useful ones as well:
 
 - preamble.tt2 (in the top directory), is processed before the actual
   template file, and may contain stuff that is common for more than
@@ -192,10 +194,11 @@ may be a few other useful ones as well:
 
 The exact process looks like this
 
-    tpage --define host={host} --defined feature={feature} \
+    tpage --define host={host} --define feature={feature} \
+          --define data={data} --define control={control} \
           --pre_process preamble.tt2 --pre_process {feature}/preamble.tt2 \
-          --post_process postamble.tt2 --post_process {feature}/postamble.tt2 \
-          {staging}/.../{file}.tt2 > {staging}/.../{file}
+          --post_process {feature}/postamble.tt2 --post_process postamble.tt2 \
+          {data}/.../{file}.tt2 > {data}/.../{file}
 
 Of course, each --pre_process and --post_process will only be there if
 the corresponding file exists.
