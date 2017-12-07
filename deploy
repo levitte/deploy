@@ -53,6 +53,10 @@ fi
 
 if cd $here/$feature; then
     abshere=$(pwd)
+    tpagerc=
+    if [ -f tpagerc ]; then
+	tpagerc=$abshere/tpagerc
+    fi
     if [ -f HOSTS -a -f README ]; then
 	if [ -z "$hosts" ]; then
 	    hosts=$(cat HOSTS | grep -v '^#' | cut -f1 -d:)
@@ -158,6 +162,9 @@ if cd $here/$feature; then
 			     "--define feature='$feature'" \
 			     "--define data='$data'" \
 			     "--define control='$control'")
+	    if [ -n "$tpagerc" ]; then
+		tpage_cmd="TPAGERC=$tpagerc $tpage_cmd"
+	    fi
 
 	    # Phase 1.1: Run the pre-copy script
 	    if [ -x pre-copy ]; then
