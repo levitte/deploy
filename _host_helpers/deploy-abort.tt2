@@ -1,0 +1,7 @@
+#! /bin/bash
+
+HERE=$(cd $(dirname $0); pwd)
+staging=${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}
+
+echo "=== Aborting"
+[% INCLUDE "$scriptdir/_host_helpers/_deploy_cleanup.tt2" %]

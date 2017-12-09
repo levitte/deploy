@@ -1,17 +1,24 @@
 #! /bin/bash
 
-cd /
-tar -tzf /tmp/deploy.[% feature %].tar.gz | while read F; do
-    if [ "${F%/}" = "$F" ] \
-	   && [ "$F" != "tmp/pre-deploy.[% feature %]" ] \
-	   && [ "$F" != "tmp/post-deploy.[% feature %]" ]; then
-	tar -xOzf /tmp/deploy.[% feature %].tar.gz "$F" | diff -u "$F" -
+HERE=$(cd $(dirname $0); pwd)
+staging=${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}
+
+(cd $staging; find | sed -e 's|^\./||') | while read F; do
+    if [ -f "$staging/$F" -a -f "/$F" ]; then
+	diff -u "/$F" "$staging/$F"
+    elif [ -f "$staging/$F" -a -d "/$F" ] || [ -d "$staging/$F" -a -f "/$F" ]; then
+	echo >&2 "File and directory mismatch!"
+	echo >&2 "  /$F"
+	echo >&2 "  $staging/$F"
+	touch $HERE/deploy-bad.[% feature %].flag
+    elif ! [ -d "$staging/$F" -a -d "/$F" ]; then
+	diff -u /dev/null "/$F"
     fi
 done
-if [ -f /tmp/deploy-remove.[% feature %].txt ]; then
-    cat /tmp/deploy-remove.[% feature %].txt | while read F; do
-	if [ -f "$F" ]; then
-	    diff -u "$F" /dev/null
+if [ -f $HERE/deploy-remove.[% feature %].txt ]; then
+    cat $HERE/deploy-remove.[% feature %].txt | while read F; do
+	if [ -f "/$F" ]; then
+	    diff -u "/$F" /dev/null
 	fi
     done
 fi

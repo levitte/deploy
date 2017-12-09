@@ -1,0 +1,14 @@
+You will find the tarball "deploy.[% feature %].tar.gz" as well
+as companion scripts in /tmp/ on each of
+[% hosts.split(' ').join(', ') %]
+
+On each host:
+
+- unpack the tarball:			/tmp/deploy-unpack.[% feature %]
+- see what changes are being deployed:	/tmp/deploy-diff.[% feature %]
+
+---------- POINT OF NO RETURN!  IF NOT SATISFIED WITH THE DIFF, 
+---------- use /tmp/deploy-abort.[% feature %] to abort NOW
+
+- deploy the changeds:			/tmp/deploy.[% feature %]
+- finish up with post-deployment:	/tmp/deploy-post.[% feature %]

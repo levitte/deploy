@@ -14,9 +14,9 @@ feature and then deploy the configuration files to a set of hosts.
 'deploy' will also do absolutely nothing without giving the sysadmin a
 change to double check that the resulting configuration is sane.  This
 is done by copying all the new configuration files to the hosts,
-allowing the sysadmin to then do a diff against current configuration
-files before putting the new files in their intended location, and do
-a manual post-deployment step as well.
+allowing the sysadmin to then unpack them, do a diff against current
+configuration files before putting the new files in their intended
+location, and do a manual post-deployment step as well.
 
 
 Structure
@@ -62,7 +62,9 @@ well.  If we wanted to have some unique files for a host that we name
   +-- {host1}/
 
 Note that only hosts that are mentioned in HOSTS will be cared for.
-Any other subdirectory (apart from src/) will be silently ignored.
+Any other subdirectory (apart from src/) will be silently ignored by
+deploy (but may be used freely by admin provided scripts and
+templates, see below).
 
 
 Feature names
@@ -95,7 +97,7 @@ currently has a different name, or maybe no name at all.
 
 There are also cases when several names are served on the same server,
 and should therefore be treated as a group of names that are processed
-all at the same time.
+all at the same time and on the same machine.
 
 In all these cases, the actual server where the final host is served
 can be seen as a staging server.  To specify a staging server, use
@@ -147,6 +149,8 @@ It does the following for each host (called {host} below):
     files.  See 'Template files' below for more information.
   - if there is an executable script {feature}/post-copy, execute it
     with {data} as current working directory.
+  - if there is a template {feature}/post-unpack.tt2 then process it,
+    resulting in {control}/post-unpack.{feature}.
   - if there is a template {feature}/pre-deploy.tt2 then process it,
     resulting in {control}/pre-deploy.{feature}.
   - if there is a template {feature}/post-deploy.tt2 then process it,
@@ -168,9 +172,13 @@ correctly.
 
 If '-n' wasn't given, the tarball is /tmp/deploy.{feature}.tar.gz on
 all hosts, and the helper scripts from _host_helpers/ end up as
-/tmp/deploy-diff.{feature}, /tmp/deploy.{feature} and
-/tmp/deploy-post.{feature}, {feature}/post-deploy.tt2 or
-{feature}/post-deploy end up as /tmp/post-deploy.{feature} and
+/tmp/deploy-unpack.{feature}, /tmp/deploy-diff.{feature},
+/tmp/deploy.{feature}, /tmp/deploy-post.{feature}, and
+{feature}/post-unpack.tt2 or {feature}/post-unpack end up as
+/tmp/post-unpack.{feature}, {feature}/pre-deploy.tt2 or
+{feature}/pre-deploy as /tmp/pre-deploy.{feature}, and 
+{feature}/post-deploy.tt2 or {feature}/post-deploy as
+/tmp/post-deploy.{feature}, and finally
 {feature}/REMOVE ends up as /tmp/deploy-remove.{feature}.txt.
 'deploy' ends the whole thing with an explanation of which hosts
 were deployed to and what to do next.
@@ -204,7 +212,7 @@ As mentioned previously, template files have file names ending with
 
 The exact process looks like this
 
-    tpage --define host={host} --define feature={feature} \
+    tpage --define hosts={finalhosts} --define feature={feature} \
           --define data={data} --define control={control} \
           --pre_process preamble.tt2 --pre_process {feature}/preamble.tt2 \
           --post_process {feature}/postamble.tt2 --post_process postamble.tt2 \

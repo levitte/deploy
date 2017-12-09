@@ -1,8 +1,28 @@
 #! /bin/bash
 
-if [ -x /tmp/pre-deploy.[% feature %] ]; then
+HERE=$(cd $(dirname $0); pwd)
+staging=${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}
+
+if ! [ -d "$staging" ]; then
+    echo >&2 "It seems that [% feature %] hasn't been unpacked yet"
+    exit 1
+fi
+
+if [ -f $HERE/deploy-bad.[% feature %].flag ]; then
+    cat >&2 <<EOF
+deploy-diff.[% feature %] found a problem!  Aborted...
+
+Recommendation: run deploy-abort.[% feature %], fix the issue and start over.
+
+HIGH RISK: remove $HERE/deploy-bad.[% feature %].flag and run this script again
+[[ HIGH RISK means you may potentially seriously screw up your config ]]
+                [[ MAKE SURE YOU KNOW WHAT YOU DO ]]
+EOF
+    exit 1
+fi
+if [ -x $HERE/pre-deploy.[% feature %] ]; then
     echo "=== Performing pre deployment tasks"
-    if ! /tmp/pre-deploy.[% feature %]; then
+    if ! $HERE/pre-deploy.[% feature %]; then
 	echo "*** Pre deployment tasks failed"
 	echo "*** Please figure out what went wrong and try again"
 	exit 1
@@ -10,8 +30,7 @@ if [ -x /tmp/pre-deploy.[% feature %] ]; then
 fi
 
 echo "=== Deploying files"
-cd /
-tar --no-overwrite-dir -xzpf /tmp/deploy.[% feature %].tar.gz
-if [ -f /tmp/deploy-remove.[% feature %].txt ]; then
-    cat /tmp/deploy-remove.[% feature %].txt | xargs rm -f
-fi
+# This makes sure that ONLY files where CONTENT has changed will actually change
+# the destination file, including modification time.  This helps post-deploy
+# scripts running make to get their triggers right.
+rsync -a --no-t --checksum "$staging/" /

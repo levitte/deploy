@@ -1,0 +1,26 @@
+#! /bin/bash
+
+HERE=$(cd $(dirname $0); pwd)
+staging=${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}
+
+if ! mkdir $staging; then
+    cat >&2 <<EOF
+The staging directory $staging alread exists.
+Is someone else also working on this, or did someone forget to run
+$HERE/deploy-abort.[% feature %]?
+EOF
+    exit 1
+fi
+
+echo "=== Unpacking files into $staging"
+cd $staging
+tar -xzpf $HERE/deploy.[% feature %].tar.gz
+
+if [ -x $HERE/post-unpack.[% feature %] ]; then
+    echo "=== Performing post unpacking tasks"
+    if ! $HERE/post-unpack.[% feature %]; then
+	echo "*** Post unpacking tasks failed"
+	echo "*** Please figure out what went wrong and try again"
+	exit 1
+    fi
+fi

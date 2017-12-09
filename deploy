@@ -221,29 +221,20 @@ if cd $here/$feature; then
 		       $abshere/post-copy )
 	    fi
 
-	    # Phase 1.8: Create the host specific pre-deployment script
-	    if [ -f pre-deploy.tt2 ]; then
-		src=pre-deploy.tt2
-		dst=$control/pre-deploy.$feature
-		eval "$tpage_cmd $tpage_extra '$src'" > "$dst"
-		chmod a+x $dst
-	    elif [ -x pre-deploy ]; then
-		dst=$control/pre-deploy.$feature
-		cp pre-deploy $dst
-		chmod a+x $dst
-	    fi
-
-	    # Phase 1.9: Create the host specific post-deployment script
-	    if [ -f post-deploy.tt2 ]; then
-		src=post-deploy.tt2
-		dst=$control/post-deploy.$feature
-		eval "$tpage_cmd $tpage_extra '$src'" > "$dst"
-		chmod a+x $dst
-	    elif [ -x post-deploy ]; then
-		dst=$control/post-deploy.$feature
-		cp post-deploy $dst
-		chmod a+x $dst
-	    fi
+	    # Phase 1.8: Create the host specific post-unpacking,
+	    # pre-deployment and post-deployment scripts
+	    for script in post-unpack pre-deploy post-deploy; do
+		if [ -f $script.tt2 ]; then
+		    src=$script.tt2
+		    dst=$control/$script.$feature
+		    eval "$tpage_cmd $tpage_extra '$src'" > "$dst"
+		    chmod a+x $dst
+		elif [ -x $script ]; then
+		    dst=$control/$script.$feature
+		    cp $script $dst
+		    chmod a+x $dst
+		fi
+	    done
 
 	    # Phase 1.10: Create the local tarball and remove staging directory
 	    (
@@ -252,9 +243,10 @@ if cd $here/$feature; then
 	    )
 
 	    # Phase 1.20: Create the deployment scripts
-	    for src in $scriptdir/_host_helpers/*.tt2; do
+	    tpage_scriptdir="--define scriptdir='$scriptdir'"
+	    for src in $scriptdir/_host_helpers/deploy*.tt2; do
 		dst=$control/$(basename $src .tt2).$feature
-		eval "$tpage_cmd $tpage_extra '$src'" > $dst
+		eval "$tpage_cmd $tpage_extra $tpage_scriptdir '$src'" > $dst
 		chmod a+x $dst
 	    done
 
@@ -288,27 +280,10 @@ if cd $here/$feature; then
 	    # Phase 3: Final instructions
 	    echo >&2 "===== Phase 3: Final instructions"
 	    if [ -n "$successhosts" ]; then
-		cat <<EOF
-You will find the tarball "deploy.$feature.tar.gz" in /tmp/ on each of
-EOF
-		echo $successhosts
-		cat <<EOF
-
-Please verify that the files to be deployed are what you expect.  You do so
-by running the following on each host and studying the resulting diff output:
-
-	/tmp/deploy-diff.$feature
-
-If you're satisfied with what you see, please deploy as follows:
-
-	/tmp/deploy.$feature
-
-and perform post deployment tasks as follows (this will also clean away all
-deployment files if the post deployment tasks themselves didn't fail):
-
-	/tmp/deploy-post.$feature
-
-EOF
+		tpage --define hosts="$successhosts" \
+		      --define feature="$feature" \
+		      --define scriptdir="$scriptdir" \
+		      $scriptdir/_host_helpers/help.tt2
 	    else
 		cat <<EOF
 Copying failed on all hosts.  Please fix the problem, or if someone else

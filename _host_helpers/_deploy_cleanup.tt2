@@ -1,0 +1,13 @@
+rm -f \
+   $HERE/deploy-bad.[% feature %].flag \
+   $HERE/deploy.[% feature %].tar.gz \
+   $HERE/deploy-remove.[% feature %].txt \
+   $HERE/deploy-unpack.[% feature %] \
+   $HERE/deploy-diff.[% feature %] \
+   $HERE/deploy.[% feature %] \
+   $HERE/deploy-post.[% feature %] \
+   $HERE/deploy-abort.[% feature %] \
+   $HERE/pre-deploy.[% feature %] \
+   $HERE/post-deploy.[% feature %]
+rm -rf \
+   ${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}

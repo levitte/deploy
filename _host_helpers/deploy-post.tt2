@@ -1,10 +1,11 @@
 #! /bin/bash
 
-if ! [ -x /tmp/post-deploy.[% feature %] ]; then
-    echo "[ there is no post deployment tasks script for [% feature %], assume none is needed ]"
-else
+HERE=$(cd $(dirname $0); pwd)
+staging=${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}
+
+if [ -x $HERE/post-deploy.[% feature %] ]; then
     echo "=== Performing post deployment tasks"
-    if ! /tmp/post-deploy.[% feature %]; then
+    if ! $HERE/post-deploy.[% feature %]; then
 	echo "*** Post deployment tasks failed"
 	echo "*** Please figure out what went wrong and try again"
 	exit 1
@@ -12,11 +13,4 @@ else
 fi
 
 echo "=== Cleaning up"
-rm -f \
-   /tmp/deploy.[% feature %].tar.gz \
-   /tmp/deploy-diff.[% feature %] \
-   /tmp/deploy-remove.[% feature %].txt \
-   /tmp/deploy.[% feature %] \
-   /tmp/deploy-post.[% feature %] \
-   /tmp/pre-deploy.[% feature %] \
-   /tmp/post-deploy.[% feature %]
+[% INCLUDE "$scriptdir/_host_helpers/_deploy_cleanup.tt2" %]
