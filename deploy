@@ -16,10 +16,14 @@ scriptdir=$(cd $(dirname $(realpath $0)); pwd)
 
 save_args="$*"
 upload=true
+verbose=false
 while [ $# -gt 0 ]; do
     case "$1" in
 	-n )
 	    upload=false
+	    ;;
+	-v )
+	    verbose=true
 	    ;;
 	* )
 	    break
@@ -161,7 +165,8 @@ if cd $here/$feature; then
 			     "--define hosts='${fqdnhosts[$currenthost]}'" \
 			     "--define feature='$feature'" \
 			     "--define data='$data'" \
-			     "--define control='$control'")
+			     "--define control='$control'" \
+			     "--define verbose='$verbose'")
 	    if [ -n "$tpagerc" ]; then
 		tpage_cmd="TPAGERC=$tpagerc $tpage_cmd"
 	    fi
@@ -171,6 +176,7 @@ if cd $here/$feature; then
 		( cd $data; \
 		  HOSTS="${fqdnhosts[$currenthost]}" FEATURE="$feature" \
 		       DATA="$data" CONTROL="$control" SOURCE="$abshere" \
+		       VERBOSE="$verbose" \
 		       $abshere/pre-copy )
 	    fi
 
@@ -211,6 +217,7 @@ if cd $here/$feature; then
 		( cd $data; \
 		  HOSTS="${fqdnhosts[$currenthost]}" FEATURE="$feature" \
 		       DATA="$data" CONTROL="$control" SOURCE="$abshere" \
+		       VERBOSE="$verbose" \
 		       $abshere/post-copy )
 	    fi
 
