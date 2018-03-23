@@ -43,8 +43,8 @@ this configuration structure and how to access it, and then whatever
 an admin needs to know to handle the files post-deployment (see
 'Deployment' below).
 
-The directory src/ contains a copy of the file that's to appear on the
-hosts, from the root (/).  So for example, if you want to have the
+The directory src/ contains copies of the files that are to appear on
+the hosts, from the root (/).  So for example, if you want to have the
 file /etc/blorp.conf, you'd have it as {feature}/src/etc/blorp.conf in
 the configuration (specifically, if the feature is named "blorp", the
 path would be blorp/src/etc/blorp.conf).
@@ -130,10 +130,10 @@ fail.
 
 It does the following for each host (called {host} below):
 
-  - set up two staging directory, let's call them {data} and {control}.
-    {data} is used as temporary storage for the deployed files.
-    {control} is used to store the deployment scripts and the tarball
-    with the deployed files.
+  - set up two staging directories, let's call them {data} and
+    {control}.  {data} is used as temporary storage for the deployed
+    files.  {control} is used to store the deployment scripts and the
+    tarball with the deployed files.
   - if there is an executable script {feature}/pre-copy, execute it
     with {data} as current working directory.
   - copy {feature}/README to {data}/README.{feature}
@@ -161,7 +161,7 @@ It does the following for each host (called {host} below):
   - unless '-n' was given, upload everything from {control}/ to
     /tmp/ on the remote hosts.
 
-If '-n' is given, there is no uploading, the you will find the
+If '-n' is given, there is no uploading, and you will find the
 tarballs locally.  'deploy' will tell you the full path to each
 tarball.  This can be used to verify that 'deploy' does it's job
 correctly.
