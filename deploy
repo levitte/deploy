@@ -62,44 +62,74 @@ if cd $here/$feature; then
 	tpagerc=$abshere/tpagerc
     fi
     if [ -f HOSTS -a -f README ]; then
+	allcurrenthosts=$(cat HOSTS \
+			      | egrep -v '^(#|[[:space:]]*$)' \
+			      | sed -e 's/^.*://' \
+			      | grep -v '^\?' \
+			      | sort \
+			      | uniq)
+	maybecurrenthosts=$(cat HOSTS \
+			      | egrep -v '^(#|[[:space:]]*$)' \
+			      | sed -e 's/^.*://' \
+			      | grep '^\?' \
+			      | sed -e 's/^\?//' \
+			      | sort \
+			      | uniq)
+	for h in $allcurrenthosts; do
+	    hh=${h//./\\.}
+	    if expr "$maybecurrenthosts" : "^$hh\$" > /dev/null; then
+		echo >&2 "$h exists with and without ? in HOSTS"
+		exit 1
+	    fi
+	done
+
 	if [ -z "$hosts" ]; then
-	    hosts=$(cat HOSTS | grep -v '^#' | cut -f1 -d:)
-	    hosts=$(for h in $hosts; do
-			if echo $h | grep '^\?' > /dev/null; then
-			    h=$(echo $h | cut -f2 -d'?')
-			    if getent hosts $h > /dev/null; then
-				echo $h
-			    fi
-			else
+	    hosts=$(echo "$allcurrenthosts"
+		    for h in $maybecurrenthosts; do
+			if getent hosts $h > /dev/null; then
 			    echo $h
 			fi
 		    done)
+	else
+	    if ! hosts=$(ok=/bin/true
+			 for h in $hosts; do
+			     hh=$h
+			     hh_re=${hh//./\\.}
+			     if ! ( echo $h | grep -q -e "\\." ); then
+				 if hh=$((echo "$allcurrenthosts"
+					  echo "$maybecurrenthosts") \
+					     | grep -e "^$h\\.") \
+					&& [ $(echo "$hh" | wc -l) -gt 1 ]; then
+				     echo >&2 "'$h' isn't unique enough"
+				     ok=/bin/false
+				 fi
+			     elif ! (echo "$allcurrenthosts"
+				     echo "$maybecurrenthosts") \
+					 | grep -q -e "^$hh_re\$"; then
+				 echo >&2 "'$h' isn't a staging host"
+				 ok=/bin/false
+			     fi
+			     echo $hh
+			 done
+			 $ok); then
+		exit 1
+	    fi
 	fi
+
+	declare -A fqdnhosts
+	fqdnhosts=()
+	for h in $(cat HOSTS); do
+	    finalhost=${h%%:*}
+	    currenthost=${h##*:}
+	    currenthost=${currenthost##\?}
+	    hh=${currenthost//./\\.}
+	    if echo "$hosts" | grep -q -e "^$hh\$"; then
+		fqdnhosts[$currenthost]=$(echo ${fqdnhosts[$currenthost]} ${finalhost})
+	    fi
+	done
 
 	# Phase 0: Checks
 	echo >&2 "===== Phase 0: Checks"
-	declare -A fqdnhosts
-	fqdnhosts=()
-	for h in $hosts; do
-	    if ! ( echo $h | grep -q -e "\\." ); then
-		if hh=$(grep -e "^$h\\." HOSTS) && ( echo "$h" | grep ' ' ); then
-		    echo >&2 "'$h' isn't unique enough"
-		    exit 1
-		fi
-	    else
-		hh=${h//./\\.}
-		hh=$(egrep -e "^\\??$hh(:|\$)" HOSTS | sed -e 's|^\?||')
-	    fi
-	    finalhost=$(echo $hh | cut -f1 -d:)
-	    currenthost=$(echo $hh | cut -f2 -d:)
-	    if [ -z "$currenthost" ]; then currenthost=$finalhost; fi
-	    if [ -z "$finalhost" ]; then
-		echo >&2 "Error: $h doesn't exist in $feature/HOSTS"
-		exit 1
-	    fi
-	    fqdnhosts[$currenthost]=$(echo ${fqdnhosts[$currenthost]} ${finalhost})
-	done
-
 	if $upload; then
 	    bail_out=/bin/false
 	    for currenthost in ${!fqdnhosts[*]}; do

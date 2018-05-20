@@ -112,6 +112,10 @@ use several lines with the same staging server name:
     {finalname2}:{stagingserver}
     {finalname3}:{stagingserver}
 
+For the sake of simplicity, one can say that when no staging server is
+specified, the final name is seen as both the final name and the staging
+server.
+
 
 Deployment
 ----------
@@ -127,8 +131,8 @@ or possibly, if you have the scripts in place (copied or symlinked):
     ./deploy [ -n ] {feature} [ {host1} ... ]
 
 NOTE: if hosts are given on the command line, they will only be
-accepted if they exist in {feature}/HOSTS.  If not, 'deploy' will
-fail.
+accepted if they are staging servers in {feature}/HOSTS.  If not,
+'deploy' will fail.
 
 It does the following for each host (called {host} below):
 
