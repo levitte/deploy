@@ -135,8 +135,8 @@ if cd $here/$feature; then
 	    for currenthost in ${!fqdnhosts[*]}; do
 		remacct=${REMACCT:+${REMACCT}\@}
 
-		if ! ssh -o ConnectTimeout=2 ${REMACCT:+${REMACCT}\@}${currenthost} 'exit 0'; then
-		    echo >&2 "Failed: ssh ${REMACCT:+${REMACCT}\@}${currenthost}"
+		if ! ssh -o ConnectTimeout=2 $remacct$currenthost 'exit 0'; then
+		    echo >&2 "Failed: ssh $remacct$currenthost"
 		    bail_out=/bin/true
 		fi
 	    done
