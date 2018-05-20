@@ -17,6 +17,7 @@ scriptdir=$(cd $(dirname $(realpath $0)); pwd)
 save_args="$*"
 upload=true
 verbose=false
+debug=false
 while [ $# -gt 0 ]; do
     case "$1" in
 	-n )
@@ -24,6 +25,9 @@ while [ $# -gt 0 ]; do
 	    ;;
 	-v )
 	    verbose=true
+	    ;;
+	-d )
+	    debug=true
 	    ;;
 	* )
 	    break
@@ -127,6 +131,12 @@ if cd $here/$feature; then
 		fqdnhosts[$currenthost]=$(echo ${fqdnhosts[$currenthost]} ${finalhost})
 	    fi
 	done
+	if $debug; then
+	    echo "DEBUG[fqdnhosts] collection of deployment hosts"
+	    for currenthost in ${!fqdnhosts[*]}; do
+		echo "DEBUG[fqdnhosts] $currenthost => " ${fqdnhosts[$currenthost]}
+	    done
+	fi
 
 	# Phase 0: Checks
 	echo >&2 "===== Phase 0: Checks"
