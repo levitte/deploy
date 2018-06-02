@@ -213,7 +213,7 @@ if cd $here/$feature; then
 
 	    # Phase 1.1: Run the pre-copy script
 	    if [ -x pre-copy ]; then
-		( cd $data; \
+		( cd $data
 		  HOSTS="${fqdnhosts[$currenthost]}" FEATURE="$feature" \
 		       DATA="$data" CONTROL="$control" SOURCE="$abshere" \
 		       VERBOSE="$verbose" \
@@ -230,8 +230,8 @@ if cd $here/$feature; then
 	    fi
 
 	    # Phase 1.4: Copy host specific files into staging directory
-	    for h in $( for x in $currenthost ${fqdnhosts[$currenthost]}; do \
-			    echo $x; \
+	    for h in $( for x in $currenthost ${fqdnhosts[$currenthost]}; do
+			    echo $x
 			done | sort | uniq ); do
 		if [ -d $h ]; then
 		    ( cd $h; tar -cf - $(git ls-tree -r --name-only master) ) | \
@@ -254,7 +254,7 @@ if cd $here/$feature; then
 
 	    # Phase 1.7: Run post-copy
 	    if [ -x post-copy ]; then
-		( cd $data; \
+		( cd $data
 		  HOSTS="${fqdnhosts[$currenthost]}" FEATURE="$feature" \
 		       DATA="$data" CONTROL="$control" SOURCE="$abshere" \
 		       VERBOSE="$verbose" \
