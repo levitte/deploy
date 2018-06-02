@@ -147,6 +147,9 @@ It does the following for each host (called {host} below):
   - copy the contents of {feature}/{host}/ recursively to {data}/.
     Note that in this specific case, {host} is both the final host
     name and the staging server name.
+  - copy the contents of {feature}/{host}@{staging}/ recursively to
+    {data}/. Note that in this specific case, {host} is the final host
+    name and {staging} is the staging server name.
   - look for any template file (files with names ending with '.tt2')
     in {data} and process each of them resulting in a files with the
     same name but without the '.tt2' ending, then remove the template

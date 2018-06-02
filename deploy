@@ -232,6 +232,9 @@ if cd $here/$feature; then
 	    # Phase 1.4: Copy host specific files into staging directory
 	    for h in $( for x in $currenthost ${fqdnhosts[$currenthost]}; do
 			    echo $x
+			done | sort | uniq
+			for x in ${fqdnhosts[$currenthost]}; do
+			    echo $x@$currenthost
 			done | sort | uniq ); do
 		if [ -d $h ]; then
 		    ( cd $h; tar -cf - $(git ls-tree -r --name-only master) ) | \
