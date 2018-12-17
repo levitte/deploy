@@ -1,0 +1,331 @@
+[%#
+
+	For bind configurations, this is a helper script that creates
+	all the necessary files for bind from only a named.conf.local.tt2
+	and a bunch of tt2 files containing zone information.
+
+	This NEEDS the following in a local tpagerc:
+
+		+eval_perl
+
+	If international (non-ASCII) domain names are going to be used,
+	you must also include this in the same local tpagerc:
+
+		perl5lib = /PATH/TO/DEPLOY/lib
+		module	 = Deploy::Template
+
+	This also NEEDS the following variables defined at all times:
+
+		zonedir		the directory where the zone definition tt2
+				files are stored.
+		knownhosts	a catalogue of host names with their IP
+				addresses, both IPv4 and IPv6, defined like
+				this:
+
+			knownhosts = { 'host1.com' = { ipv4 = '182.328.128.128',
+				       		       ipv6 = '2000::1' },
+				       'host2.com' = { ipv4 = '182.328.128.129',
+				       		       ipv6 = '2000::2' },
+				       ... }
+
+		hosts		the list of hostnames currently being processed.
+
+	Views are supported, and require the following variable to be defined
+	if they are used:
+
+		viewname	the view name that should be processed, if
+				defined.
+
+	Zone tt2 files may define variables of their own:
+
+		zones		the zones defined by this file.
+		securemasters	the DNSSEC masters for the zones in this file.
+		masters		the non-DNSSEC masters for the zones in this
+				file.
+		slaves		the slaves for the zones in this file.
+		views		the views in which the zones in this file are
+				present.
+
+	the non-tt2 contents of the zone tt2 files are the RRs for those
+	zones.  The following defined variables may be useful:
+
+		path		the path of the current zone tt2 file.
+		name		the name of the zone, converted to be a
+				suitable file name part.
+		zone_orig	the original zone name.
+		zone		the zone name, possibly IDN rewritten to ASCII.
+		host		the host for the zone.
+
+-%]
+[%#
+
+========== Helper blocks =============================================
+
+-%]
+[%
+   BLOCK bind_debug;
+     PERL
+-%]
+     print STDERR "DEBUG: [% text %]\n"
+       if $stash->get('debug') eq 'true';
+[%
+     END;
+   END
+-%]
+[%
+   BLOCK bind_verbosely;
+     PERL
+-%]
+     print STDERR "LOG: [% text %]\n"
+       if $stash->get('verbose') eq 'true';
+[%
+     END;
+   END
+-%]
+[%
+   BLOCK bind_error;
+     PERL
+-%]
+     print STDERR "ERROR: [% text %]\n"
+       if $stash->get('verbose');
+[%
+     END;
+   END
+-%]
+[%
+   BLOCK bind_mkdir;
+     PERL
+-%]
+     use File::Path qw(make_path);
+     my @dirs = make_path $stash->get('data').'/'.$stash->get('dir');
+     print STDERR "LOG: creating director", (scalar @dirs == 1 ? "y" : "ies"),
+       " ", join(", ", @dirs), "\n"
+       if $stash->get('verbose') eq 'true' && scalar @dirs;
+[%   END -%]
+[% END -%]
+[% BLOCK bind_touch; END -%]
+[%#
+
+========== Zone file block ===========================================
+
+-%]
+[% BLOCK bind_zonefile -%]
+$ORIGIN	[% zone %].
+$TTL	3600
+[%   INCLUDE "$path" -%]
+[% END -%]
+[%#
+
+========== master zone block for named.conf.local ====================
+
+-%]
+[% BLOCK bind_master -%]
+zone "[% zone %]" {
+	type master;
+	file "zone.[% name %]";
+};
+[% END -%]
+[%#
+
+========== DNSSEC master zone block for named.conf.local =============
+
+-%]
+[% BLOCK bind_securemaster -%]
+zone "[% zone %]" {
+	type master;
+	file "zone.[% name %]";
+
+        # publish and activate dnssec keys:
+        auto-dnssec maintain;
+        # use inline signing:
+        inline-signing yes;
+};
+[% END -%]
+[%#
+
+========== slave zone block for named.conf.local =====================
+
+-%]
+[% BLOCK bind_slave -%]
+zone "[% zone %]" {
+	type slave;
+	file "zone.[% name %]";
+	masters {
+[%
+     FOREACH bind_masters IN securemasters.list;
+       IF knownhost.$bind_masters;
+         bind_ipv4 = knownhost.$host.ipv4;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv4: $bind_ipv4";
+         bind_ipv4 = knownhost.$bind_masters.ipv4;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv4: $bind_ipv4";
+         IF knownhost.$host.ipv4 && knownhost.$bind_masters.ipv4
+-%]
+		[% knownhost.$bind_masters.ipv4 %];
+[%
+         END;
+         bind_ipv6 = knownhost.$host.ipv6;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv6: $bind_ipv6";
+         bind_ipv6 = knownhost.$bind_masters.ipv6;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv6: $bind_ipv6";
+         IF knownhost.$host.ipv6 && knownhost.$bind_masters.ipv6
+-%]
+		[% knownhost.$bind_masters.ipv6 %];
+[%
+         END;
+       END;
+     END
+-%]
+[%
+     FOREACH bind_masters IN masters.list;
+       IF knownhost.$bind_masters;
+         bind_ipv4 = knownhost.$host.ipv4;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv4: $bind_ipv4";
+         bind_ipv4 = knownhost.$bind_masters.ipv4;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv4: $bind_ipv4";
+         IF knownhost.$host.ipv4 && knownhost.$bind_masters.ipv4
+-%]
+		[% knownhost.$bind_masters.ipv4 %];
+[%
+         END;
+         bind_ipv6 = knownhost.$host.ipv6;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv6: $bind_ipv6";
+         bind_ipv6 = knownhost.$bind_masters.ipv6;
+         INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv6: $bind_ipv6";
+         IF knownhost.$host.ipv6 && knownhost.$bind_masters.ipv6
+-%]
+		[% knownhost.$bind_masters.ipv6 %];
+[%
+         END;
+       END;
+     END
+-%]
+	};
+};
+[% END -%]
+[%#
+
+========== Driver block ==============================================
+
+-%]
+[%
+   BLOCK bind_process_conf;
+     bind_junk = PROCESS "$bind_path";
+     bind_tmp_zones = zones.join(", ");
+     bind_tmp_securemasters = securemasters.list.join(", ");
+     bind_tmp_masters = masters.list.join(", ");
+     bind_tmp_slaves = slaves.list.join(", ");
+     bind_tmp_views = views.list.join(", ");
+     INCLUDE bind_debug text="Path: $bind_path";
+     INCLUDE bind_debug text="Zones: $bind_tmp_zones";
+     INCLUDE bind_debug text="Secure masters: $bind_tmp_securemasters";
+     INCLUDE bind_debug text="Masters: $bind_tmp_masters";
+     INCLUDE bind_debug text="Slaves: $bind_tmp_slaves";
+     INCLUDE bind_debug text="Views: $bind_tmp_views";
+     bind_view = '*';
+     FOREACH bind_v IN views.list;
+       bind_view = '';
+       NEXT UNLESS bind_v == viewname;
+       bind_view = bind_v;
+       LAST;
+     END;
+     RETURN UNLESS bind_view == '*' || bind_view == viewname;
+     FOREACH bind_host IN hosts;
+       bind_type = 'none';
+       FOREACH bind_slave IN slaves.list;
+         IF bind_slave == bind_host;
+	   IF bind_type != 'none';
+	     THROW bind_conf "$bind_host found both as slave and as $bind_type";
+	   END;
+	   bind_type = 'slave';
+	   LAST;
+	 END;
+       END;
+       FOREACH bind_master IN masters.list;
+         IF bind_master == bind_host;
+	   IF bind_type != 'none';
+	     THROW bind_conf "$bind_host found both as master and as $bind_type";
+	   END;
+	   bind_type = 'master';
+	   LAST;
+	 END;
+       END;
+       FOREACH bind_securemaster IN securemasters.list;
+         IF bind_securemaster == bind_host;
+	   IF bind_type != 'none';
+	     THROW bind_conf "$bind_host found both as securemaster and as $bind_type";
+	   END;
+	   bind_type = 'securemaster';
+	   LAST;
+	 END;
+       END;
+       NEXT IF bind_type == 'none';
+
+       INCLUDE bind_verbosely text="processing file: $bind_path";
+       bind_dir = "etc/bind/local";
+       bind_zones = zones.list;
+       FOREACH bind_zone IN bind_zones;
+         bind_asciihost_re = '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$';
+         IF bind_zone.match(bind_asciihost_re);
+	   bind_z = bind_zone;
+	 ELSE;
+	   bind_z = bind_zone.domain_to_ascii;
+	 END;
+ 	 IF bind_z != bind_zone;
+           INCLUDE bind_verbosely text="processing zone $bind_type: $bind_zone => $bind_z";
+     	 ELSE;
+           INCLUDE bind_verbosely text="processing zone $bind_type: $bind_z";
+ 	 END;
+ 	 bind_name = bind_z;
+ 	 bind_name = bind_name.replace('/', '-');
+	 IF viewname;
+	   bind_name = "view_${viewname}.$bind_name";
+	 END;
+	 bind_zfn = "zone.$bind_name";
+ 	 IF bind_type != 'slave';
+ 	   INCLUDE bind_mkdir dir="$bind_dir";
+ 	   INCLUDE bind_verbosely text="writing $bind_dir/$bind_zfn";
+ 	   INCLUDE bind_zonefile
+	   	   path="$bind_path"
+		   name="$bind_name"
+ 		   zone_orig="$bind_zone"
+ 		   zone="$bind_z"
+ 		   host="$bind_host"
+		 | redirect("$bind_dir/$bind_zfn");
+         END;
+	 IF bind_type == 'securemaster';
+	   bind_sfn = "secure.$bind_name";
+ 	   INCLUDE bind_verbosely text="touching $bind_dir/$bind_sfn";
+	   INCLUDE bind_touch | redirect("$bind_dir/$bind_sfn");
+	 END;
+         INCLUDE "bind_$bind_type"
+		 name="$bind_name"
+ 		 zone_orig="$bind_zone"
+ 		 zone="$bind_z"
+ 		 host="$bind_host";
+       END;
+     END;
+   END
+-%]
+[%#
+
+========== Starter, or main() ========================================
+
+-%]
+[%
+   INCLUDE bind_verbosely text="-----START-----";
+   bind_txt_hosts = hosts.join(", ");
+   INCLUDE bind_verbosely text="processing view '$viewname' for hosts: $bind_txt_hosts";
+   SET bind_hostlist = hosts.split(' ');
+   SET bind_incdirs = [];
+   USE bind_incdir = Directory("zones");
+   FOREACH bind_f IN bind_incdir.files;
+     bind_matches = bind_f.name.match('^(.*)\.tt2$');
+     NEXT UNLESS bind_matches;
+     TRY;
+       INCLUDE bind_process_conf bind_path="$bind_f.path" bind_name="$bind_matches.1";
+     CATCH bind_conf;
+       INCLUDE bind_error text=error.info;
+     END;
+   END;
+   INCLUDE bind_verbosely text="-----END-----";
+%]
