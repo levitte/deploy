@@ -206,7 +206,8 @@ if cd $here/$feature; then
 			     "--define feature='$feature'" \
 			     "--define data='$data'" \
 			     "--define control='$control'" \
-			     "--define verbose='$verbose'")
+			     "--define verbose='$verbose'" \
+			     "--define scriptdir='$scriptdir'")
 	    if [ -n "$tpagerc" ]; then
 		tpage_cmd="TPAGERC=$tpagerc $tpage_cmd"
 	    fi
@@ -286,10 +287,9 @@ if cd $here/$feature; then
 	    )
 
 	    # Phase 1.20: Create the deployment scripts
-	    tpage_scriptdir="--define scriptdir='$scriptdir'"
 	    for src in $scriptdir/_host_helpers/deploy*.tt2; do
 		dst=$control/$(basename $src .tt2).$feature
-		eval "$tpage_cmd $tpage_extra $tpage_scriptdir '$src'" > $dst
+		eval "$tpage_cmd $tpage_extra '$src'" > $dst
 		chmod a+x $dst
 	    done
 
