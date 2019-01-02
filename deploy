@@ -211,6 +211,9 @@ if cd $here/$feature; then
 	    if [ -n "$tpagerc" ]; then
 		tpage_cmd="TPAGERC=$tpagerc $tpage_cmd"
 	    fi
+	    if $debug; then
+		echo "DEBUG[tpage_cmd] $tpage_cmd"
+	    fi
 
 	    # Phase 1.1: Run the pre-copy script
 	    if [ -x pre-copy ]; then
