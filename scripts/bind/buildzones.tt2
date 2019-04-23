@@ -16,8 +16,6 @@
 
 	This also NEEDS the following variables defined at all times:
 
-		zonedir		the directory where the zone definition tt2
-				files are stored.
 		knownhosts	a catalogue of host names with their IP
 				addresses, both IPv4 and IPv6, defined like
 				this:
@@ -28,7 +26,13 @@
 				       		       ipv6 = '2000::2' },
 				       ... }
 
-		hosts		the list of hostnames currently being processed.
+		nameservers	the list of nameservers to deal with.
+
+        Optional variables:
+
+		zonedir		the directory where the zone definition tt2
+				files are stored.  It defaults to "zones".
+
 
 	Views are supported, and require the following variable to be defined
 	if they are used:
@@ -229,7 +233,7 @@ zone "[% zone %]" {
        LAST;
      END;
      RETURN UNLESS bind_view == '*' || bind_view == viewname;
-     FOREACH bind_host IN hosts;
+     FOREACH bind_host IN nameservers;
        bind_type = 'none';
        FOREACH bind_slave IN slaves.list;
          IF bind_slave == bind_host;
@@ -313,11 +317,12 @@ zone "[% zone %]" {
 -%]
 [%
    INCLUDE bind_verbosely text="-----START-----";
-   bind_txt_hosts = hosts.join(", ");
+   bind_txt_hosts = nameservers.join(", ");
    INCLUDE bind_verbosely text="processing view '$viewname' for hosts: $bind_txt_hosts";
-   SET bind_hostlist = hosts.split(' ');
+   SET bind_hostlist = nameservers.split(' ');
    SET bind_incdirs = [];
-   USE bind_incdir = Directory("zones");
+   SET zonedir = "zones" IF ! zonedir.defined;
+   USE bind_incdir = Directory(zonedir);
    FOREACH bind_f IN bind_incdir.files;
      bind_matches = bind_f.name.match('^(.*)\.tt2$');
      NEXT UNLESS bind_matches;
