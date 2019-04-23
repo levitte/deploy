@@ -13,6 +13,10 @@ TAR_GROUP=root:0
 
 here=${DEPLOY_DIR:-$(pwd)}
 scriptdir=$(cd $(dirname $(realpath $0)); pwd)
+if ! currentbranch=$(git rev-parse --abbrev-ref HEAD); then
+    echo >&2 "We ask the the configuration directory be git versioned"
+    exit 1
+fi
 
 save_args="$*"
 upload=true
@@ -229,7 +233,8 @@ if cd $here/$feature; then
 	    
 	    # Phase 1.3: Copy common source files into staging directory
 	    if [ -d src ]; then
-		( cd src; tar -cf - $(git ls-tree -r --name-only master) ) | \
+		( cd src;
+                  tar -cf - $(git ls-tree -r --name-only $currentbranch) ) | \
 		    ( cd $data; tar -xpf - )
 	    fi
 
@@ -241,7 +246,8 @@ if cd $here/$feature; then
 			    echo $x@$currenthost
 			done | sort | uniq ); do
 		if [ -d $h ]; then
-		    ( cd $h; tar -cf - $(git ls-tree -r --name-only master) ) | \
+		    ( cd $h;
+                      tar -cf - $(git ls-tree -r --name-only $currentbranch) ) | \
 			( cd $data; tar -xpf - )
 		fi
 	    done
