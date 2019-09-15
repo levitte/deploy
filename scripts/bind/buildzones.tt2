@@ -156,48 +156,50 @@ zone "[% zone %]" {
 	file "zone.[% name %]";
 	masters {
 [%
-     FOREACH bind_masters IN securemasters.list;
-       IF knownhost.$bind_masters;
+     FOREACH bind_master IN securemasters.list;
+       NEXT IF bind_master == host; # no self reference
+       IF knownhost.$bind_master;
          bind_ipv4 = knownhost.$host.ipv4;
          INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv4: $bind_ipv4";
-         bind_ipv4 = knownhost.$bind_masters.ipv4;
+         bind_ipv4 = knownhost.$bind_master.ipv4;
          INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv4: $bind_ipv4";
-         IF knownhost.$host.ipv4 && knownhost.$bind_masters.ipv4
+         IF knownhost.$host.ipv4 && knownhost.$bind_master.ipv4
 -%]
-		[% knownhost.$bind_masters.ipv4 %];
+		[% knownhost.$bind_master.ipv4 %];
 [%
          END;
          bind_ipv6 = knownhost.$host.ipv6;
          INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv6: $bind_ipv6";
-         bind_ipv6 = knownhost.$bind_masters.ipv6;
+         bind_ipv6 = knownhost.$bind_master.ipv6;
          INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv6: $bind_ipv6";
-         IF knownhost.$host.ipv6 && knownhost.$bind_masters.ipv6
+         IF knownhost.$host.ipv6 && knownhost.$bind_master.ipv6
 -%]
-		[% knownhost.$bind_masters.ipv6 %];
+		[% knownhost.$bind_master.ipv6 %];
 [%
          END;
        END;
      END
 -%]
 [%
-     FOREACH bind_masters IN masters.list;
-       IF knownhost.$bind_masters;
+     FOREACH bind_master IN masters.list;
+       NEXT IF bind_master == host; # no self reference
+       IF knownhost.$bind_master;
          bind_ipv4 = knownhost.$host.ipv4;
          INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv4: $bind_ipv4";
-         bind_ipv4 = knownhost.$bind_masters.ipv4;
+         bind_ipv4 = knownhost.$bind_master.ipv4;
          INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv4: $bind_ipv4";
-         IF knownhost.$host.ipv4 && knownhost.$bind_masters.ipv4
+         IF knownhost.$host.ipv4 && knownhost.$bind_master.ipv4
 -%]
-		[% knownhost.$bind_masters.ipv4 %];
+		[% knownhost.$bind_master.ipv4 %];
 [%
          END;
          bind_ipv6 = knownhost.$host.ipv6;
          INCLUDE bind_debug text="BLOCK bind_slave: $host is ipv6: $bind_ipv6";
-         bind_ipv6 = knownhost.$bind_masters.ipv6;
+         bind_ipv6 = knownhost.$bind_master.ipv6;
          INCLUDE bind_debug text="BLOCK bind_slave: $host => ipv6: $bind_ipv6";
-         IF knownhost.$host.ipv6 && knownhost.$bind_masters.ipv6
+         IF knownhost.$host.ipv6 && knownhost.$bind_master.ipv6
 -%]
-		[% knownhost.$bind_masters.ipv6 %];
+		[% knownhost.$bind_master.ipv6 %];
 [%
          END;
        END;
@@ -237,27 +239,20 @@ zone "[% zone %]" {
        bind_type = 'none';
        FOREACH bind_slave IN slaves.list;
          IF bind_slave == bind_host;
-	   IF bind_type != 'none';
-	     THROW bind_conf "$bind_host found both as slave and as $bind_type";
-	   END;
 	   bind_type = 'slave';
 	   LAST;
 	 END;
        END;
        FOREACH bind_master IN masters.list;
          IF bind_master == bind_host;
-	   IF bind_type != 'none';
-	     THROW bind_conf "$bind_host found both as master and as $bind_type";
-	   END;
+	   NEXT IF bind_type == 'slave';
 	   bind_type = 'master';
 	   LAST;
 	 END;
        END;
        FOREACH bind_securemaster IN securemasters.list;
          IF bind_securemaster == bind_host;
-	   IF bind_type != 'none';
-	     THROW bind_conf "$bind_host found both as securemaster and as $bind_type";
-	   END;
+	   NEXT IF bind_type == 'slave';
 	   bind_type = 'securemaster';
 	   LAST;
 	 END;
