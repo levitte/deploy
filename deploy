@@ -146,20 +146,23 @@ if cd $here/$feature; then
 	echo >&2 "===== Phase 0: Checks"
 	if $upload; then
 	    bail_out=/bin/false
+	    defremtimeout=2
+	    remtimeout=${REMTIMEOUT:-$defremtimeout}
+	    remacct=${REMACCT:+${REMACCT}\@}
 	    for currenthost in ${!fqdnhosts[*]}; do
-		remacct=${REMACCT:+${REMACCT}\@}
-
-		if ! ssh -o ConnectTimeout=2 $remacct$currenthost 'exit 0'; then
+		if ! ssh -o ConnectTimeout=$remtimeout $remacct$currenthost 'exit 0'; then
 		    echo >&2 "Failed: ssh $remacct$currenthost"
 		    bail_out=/bin/true
 		fi
 	    done
 	    if $bail_out; then
 		if [ -z "${REMACCT}" ]; then
-		    echo >&2 "You may want to try setting REMACCT to your username on that host:"
-		    echo >&2 ""
-		    echo >&2 "    REMACCT=username $0 $save_args"
+		    echo >&2 "You may want to try setting REMACCT to your username on that host"
 		fi
+		echo >&2 "If the network connection to $currenthost is slow, you might want"
+		echo >&2 "to try setting REMTIMEOUT to a value higher than $remtimeout"
+		echo >&2 ""
+		echo >&2 "    REMTIMEOUT=10 REMACCT=username $0 $save_args"
 		exit 1
 	    fi
 	fi
