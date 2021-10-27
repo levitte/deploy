@@ -9,6 +9,9 @@
 TAR_OWNER=root:0
 TAR_GROUP=root:0
 
+DEPLOY_SSH=${DEPLOY_SSH:-ssh}
+REMACCT=${REMACCT:+${REMACCT}\@}
+
 # End of configurable parameters
 
 here=${DEPLOY_DIR:-$(pwd)}
@@ -148,10 +151,9 @@ if cd $here/$feature; then
 	    bail_out=/bin/false
 	    defremtimeout=2
 	    remtimeout=${REMTIMEOUT:-$defremtimeout}
-	    remacct=${REMACCT:+${REMACCT}\@}
 	    for currenthost in ${!fqdnhosts[*]}; do
-		if ! ssh -o ConnectTimeout=$remtimeout $remacct$currenthost 'exit 0'; then
-		    echo >&2 "Failed: ssh $remacct$currenthost"
+                if ! $DEPLOY_SSH -o ConnectTimeout=$remtimeout $REMACCT$currenthost 'exit 0'; then
+		    echo >&2 "Failed: ssh $REMACCT$currenthost"
 		    bail_out=/bin/true
 		fi
 	    done
@@ -324,7 +326,7 @@ if cd $here/$feature; then
 		control=$staging/$currenthost-control
 
 		echo -n "Copying deployment tarball and deployment files to $currenthost..."
-		if scp -q $control/* ${REMACCT:+${REMACCT}\@}${currenthost}:/tmp/; then
+		if scp -q -S $DEPLOY_SSH $control/* $REMACCT$currenthost:/tmp/; then
 		    echo done
 		    successhosts=$(echo $successhosts $currenthost)
 		else
