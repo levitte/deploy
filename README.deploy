@@ -219,7 +219,8 @@ As mentioned previously, template files have file names ending with
 
 The exact process looks like this
 
-    tpage --define hosts={finalhosts} --define feature={feature} \
+    tpage --define hosts={finalhosts} --define staginghost={staging} \
+          --define feature={feature} \
           --define data={data} --define control={control} \
           --pre_process preamble.tt2 --pre_process {feature}/preamble.tt2 \
           --post_process {feature}/postamble.tt2 --post_process postamble.tt2 \
