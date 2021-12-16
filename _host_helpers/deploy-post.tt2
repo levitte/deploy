@@ -5,7 +5,7 @@ staging=${DEPLOY_STAGING:-/var/tmp/deploy.[% feature %]}
 
 if [ -x $HERE/post-deploy.[% feature %] ]; then
     echo "=== Performing post deployment tasks"
-    if ! $HERE/post-deploy.[% feature %]; then
+    if ! DEPLOY_STAGING=$staging $HERE/post-deploy.[% feature %]; then
 	echo "*** Post deployment tasks failed"
 	echo "*** Please figure out what went wrong and try again"
 	exit 1

@@ -22,7 +22,7 @@ EOF
 fi
 if [ -x $HERE/pre-deploy.[% feature %] ]; then
     echo "=== Performing pre deployment tasks"
-    if ! $HERE/pre-deploy.[% feature %]; then
+    if ! DEPLOY_STAGING=$staging $HERE/pre-deploy.[% feature %]; then
 	echo "*** Pre deployment tasks failed"
 	echo "*** Please figure out what went wrong and try again"
 	exit 1

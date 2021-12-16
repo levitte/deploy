@@ -18,7 +18,7 @@ tar -xzpf $HERE/deploy.[% feature %].tar.gz
 
 if [ -x $HERE/post-unpack.[% feature %] ]; then
     echo "=== Performing post unpacking tasks"
-    if ! $HERE/post-unpack.[% feature %]; then
+    if ! DEPLOY_STAGING=$staging $HERE/post-unpack.[% feature %]; then
 	echo "*** Post unpacking tasks failed"
 	echo "*** Please figure out what went wrong and try again"
 	exit 1
