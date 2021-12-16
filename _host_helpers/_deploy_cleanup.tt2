@@ -7,6 +7,7 @@ rm -f \
    $HERE/deploy.[% feature %] \
    $HERE/deploy-post.[% feature %] \
    $HERE/deploy-abort.[% feature %] \
+   $HERE/post-unpack.[% feature %] \
    $HERE/pre-deploy.[% feature %] \
    $HERE/post-deploy.[% feature %]
 rm -rf \
