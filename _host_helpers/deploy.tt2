@@ -20,14 +20,6 @@ HIGH RISK: remove $HERE/deploy-bad.[% feature %].flag and run this script again
 EOF
     exit 1
 fi
-if [ -x $HERE/pre-deploy.[% feature %] ]; then
-    echo "=== Performing pre deployment tasks"
-    if ! DEPLOY_STAGING=$staging $HERE/pre-deploy.[% feature %]; then
-	echo "*** Pre deployment tasks failed"
-	echo "*** Please figure out what went wrong and try again"
-	exit 1
-    fi
-fi
 
 echo "=== Deploying files"
 # This makes sure that ONLY files where CONTENT has changed will actually change
