@@ -263,6 +263,9 @@ On each staging host, the admin is expected to run four commands:
     directory.  This also removes the files that are indicated by
     /tmp/deploy-remove.{feature}.txt from the live directory.
 
+    All updated or removed files are backed up to a file with the same
+    name with the added suffix '~'.
+
     When this is done, there's no return.
 
 -   /tmp/deploy-post.{feature}
