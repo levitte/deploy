@@ -22,7 +22,8 @@ EOF
 fi
 
 echo "=== Deploying files"
-# This makes sure that ONLY files where CONTENT has changed will actually change
-# the destination file, including modification time.  This helps post-deploy
-# scripts running make to get their triggers right.
-rsync -a --no-t --checksum "$staging/" /
+# The rsync options --no-t --no-U --checksum make sure that ONLY files where
+# CONTENT has changed will actually change the destination file, including
+# modification time.
+# This helps post-deploy scripts running make to get their triggers right.
+rsync -a --no-t --no-U --checksum "$staging/" /
