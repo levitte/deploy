@@ -228,3 +228,48 @@ The exact process looks like this
 
 Of course, each --pre_process and --post_process will only be there if
 the corresponding file exists.
+
+
+Execution on the host
+---------------------
+
+On each staging host, the admin is expected to run four commands:
+
+-   /tmp/deploy-unpack.{feature}
+
+    This unpacks all the data files into a staging directory.
+    The staging directory is /var/tmp/deploy.{feature} by default,
+    but can be overriden with the environment variable $DEPLOY_STAGING.
+
+    If there is an executable file /tmp/post-unpack.{feature}, it will
+    be executed as well, with the environment variable DEPLOY_STAGING
+    assigned the staging directory.
+
+-   /tmp/deploy-diff.{feature}
+
+    This compares all the files in the staging directory with the
+    corresponding live files, and display the differences.  It also
+    takes files removals indicated by /tmp/deploy-remove.{feature}.txt
+    into account.
+
+    This allows the admin to see exactly what's going to happen and to
+    see that everything is all right.  If something looks wrong at this
+    stage, the admin should run /tmp/deploy-abort.{feature}, which will
+    simply clean everything away and leave the live files untouched.
+
+-   /tmp/deploy.{feature}
+
+    This copies all the files from the staging directory to the live
+    directory.  This also removes the files that are indicated by
+    /tmp/deploy-remove.{feature}.txt from the live directory.
+
+    When this is done, there's no return.
+
+-   /tmp/deploy-post.{feature}
+
+    If there is an executable file /tmp/post-deploy.{feature}, it will
+    be executed first, with the environment variable DEPLOY_STAGING
+    assigned the staging directory.
+
+    This ends by cleaning away the deployment scripts and the staging
+    directory.
