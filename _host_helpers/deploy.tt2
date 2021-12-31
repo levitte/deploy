@@ -26,10 +26,11 @@ echo "=== Deploying files"
 # CONTENT has changed will actually change the destination file, including
 # modification time.
 # This helps post-deploy scripts running make to get their triggers right.
-rsync -a -b --no-t --no-U --checksum "$staging/" /
+rsync -a -b --no-t --no-U --checksum --info=name1 "$staging/" /
 if [ -s $HERE/deploy-remove.[% feature %].txt ]; then
     echo "=== Removing files"
     cat $HERE/deploy-remove.[% feature %].txt | while read F; do
         mv -f "/$F" "/$F~"
+        echo "/$F"
     done
 fi
