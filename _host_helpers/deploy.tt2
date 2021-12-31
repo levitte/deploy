@@ -27,3 +27,9 @@ echo "=== Deploying files"
 # modification time.
 # This helps post-deploy scripts running make to get their triggers right.
 rsync -a --no-t --no-U --checksum "$staging/" /
+if [ -s $HERE/deploy-remove.[% feature %].txt ]; then
+    echo "=== Removing files"
+    cat $HERE/deploy-remove.[% feature %].txt | while read F; do
+        rm -f "/$F"
+    done
+fi
