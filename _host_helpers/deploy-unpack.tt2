@@ -12,6 +12,15 @@ EOF
     exit 1
 fi
 
+if [ -x $HERE/pre-unpack.[% feature %] ]; then
+    echo "=== Performing pre unpacking tasks"
+    if ! DEPLOY_STAGING=$staging $HERE/pre-unpack.[% feature %]; then
+	echo "*** Pre unpacking tasks failed"
+	echo "*** Please figure out what went wrong and try again"
+	exit 1
+    fi
+fi
+
 echo "=== Unpacking files into $staging"
 cd $staging
 tar -xzpf $HERE/deploy.[% feature %].tar.gz

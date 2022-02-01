@@ -156,6 +156,8 @@ It does the following for each host (called {host} below):
     files.  See 'Template files' below for more information.
   - if there is an executable script {feature}/post-copy, execute it
     with {data} as current working directory.
+  - if there is a template {feature}/pre-unpack.tt2 then process it,
+    resulting in {control}/pre-unpack.{feature}.
   - if there is a template {feature}/post-unpack.tt2 then process it,
     resulting in {control}/post-unpack.{feature}.
   - if there is a template {feature}/post-deploy.tt2 then process it,
@@ -179,12 +181,13 @@ If '-n' wasn't given, the tarball is /tmp/deploy.{feature}.tar.gz on
 all hosts, and the helper scripts from _host_helpers/ end up as
 /tmp/deploy-unpack.{feature}, /tmp/deploy-diff.{feature},
 /tmp/deploy.{feature}, /tmp/deploy-post.{feature}, and
-{feature}/post-unpack.tt2 or {feature}/post-unpack end up as
-/tmp/post-unpack.{feature}, and {feature}/post-deploy.tt2 or
-{feature}/post-deploy as /tmp/post-deploy.{feature}, and finally
-{feature}/REMOVE ends up as /tmp/deploy-remove.{feature}.txt.
-'deploy' ends the whole thing with an explanation of which hosts
-were deployed to and what to do next.
+{feature}/pre-unpack.tt2 or {feature}/pre-unpack end up as
+/tmp/pre-unpack.{feature}, {feature}/post-unpack.tt2 or
+{feature}/post-unpack end up as /tmp/post-unpack.{feature}, and
+{feature}/post-deploy.tt2 or {feature}/post-deploy as
+/tmp/post-deploy.{feature}, and finally {feature}/REMOVE ends up as
+/tmp/deploy-remove.{feature}.txt.  'deploy' ends the whole thing with
+an explanation of which hosts were deployed to and what to do next.
 
 
 Template files
@@ -236,6 +239,11 @@ On each staging host, the admin is expected to run four commands:
     This unpacks all the data files into a staging directory.
     The staging directory is /var/tmp/deploy.{feature} by default,
     but can be overriden with the environment variable $DEPLOY_STAGING.
+
+    If there is an executable file /tmp/pre-unpack.{feature}, it will
+    be executed first, with the environment variable DEPLOY_STAGING
+    assigned the staging directory.  If it fails, unpacking doesn't
+    happen.
 
     If there is an executable file /tmp/post-unpack.{feature}, it will
     be executed as well, with the environment variable DEPLOY_STAGING

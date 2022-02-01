@@ -280,9 +280,9 @@ if cd $here/$feature; then
 		       $abshere/post-copy )
 	    fi
 
-	    # Phase 1.8: Create the host specific post-unpacking and
-	    # post-deployment scripts
-	    for script in post-unpack post-deploy; do
+	    # Phase 1.8: Create the host specific pre-unpacking,
+	    # post-unpacking and post-deployment scripts
+	    for script in pre-unpack post-unpack post-deploy; do
 		if [ -f $script.tt2 ]; then
 		    src=$script.tt2
 		    dst=$control/$script.$feature
