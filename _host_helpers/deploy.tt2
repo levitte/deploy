@@ -22,11 +22,11 @@ EOF
 fi
 
 echo "=== Deploying files"
-# The rsync options --no-t --no-U --checksum make sure that ONLY files where
+# The rsync options --no-t --checksum make sure that ONLY files where
 # CONTENT has changed will actually change the destination file, including
 # modification time.
 # This helps post-deploy scripts running make to get their triggers right.
-rsync -a -b --no-t --no-U --checksum --info=name1 "$staging/" /
+rsync -a -b --no-t --checksum --info=name1 "$staging/" /
 if [ -s $HERE/deploy-remove.[% feature %].txt ]; then
     cat $HERE/deploy-remove.[% feature %].txt | \
         (
