@@ -158,8 +158,6 @@ It does the following for each host (called {host} below):
     with {data} as current working directory.
   - if there is a template {feature}/post-unpack.tt2 then process it,
     resulting in {control}/post-unpack.{feature}.
-  - if there is a template {feature}/pre-deploy.tt2 then process it,
-    resulting in {control}/pre-deploy.{feature}.
   - if there is a template {feature}/post-deploy.tt2 then process it,
     resulting in {control}/post-deploy.{feature}.
   - create a tarball from the contents of {data}/ (with {data}/ being
@@ -182,10 +180,8 @@ all hosts, and the helper scripts from _host_helpers/ end up as
 /tmp/deploy-unpack.{feature}, /tmp/deploy-diff.{feature},
 /tmp/deploy.{feature}, /tmp/deploy-post.{feature}, and
 {feature}/post-unpack.tt2 or {feature}/post-unpack end up as
-/tmp/post-unpack.{feature}, {feature}/pre-deploy.tt2 or
-{feature}/pre-deploy as /tmp/pre-deploy.{feature}, and 
-{feature}/post-deploy.tt2 or {feature}/post-deploy as
-/tmp/post-deploy.{feature}, and finally
+/tmp/post-unpack.{feature}, and {feature}/post-deploy.tt2 or
+{feature}/post-deploy as /tmp/post-deploy.{feature}, and finally
 {feature}/REMOVE ends up as /tmp/deploy-remove.{feature}.txt.
 'deploy' ends the whole thing with an explanation of which hosts
 were deployed to and what to do next.
