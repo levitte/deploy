@@ -43,6 +43,15 @@
 	Zone tt2 files may define variables of their own:
 
 		zones		the zones defined by this file.
+				For masters, this produces zone files named line
+				the zone after mangling to ascii if needed, and
+				prefixed with 'zone.' (non-DNSSEC masters) or
+				'secure.' (DNSSEC masters).
+		aliaszones	alternative form of zones defined by this file.
+				This is a hash table with the key being the zone
+				and the value being used as the zone file,
+				subject to the same mangling as the 'zones'
+				values.
 		securemasters	the DNSSEC masters for the zones in this file.
 		masters		the non-DNSSEC masters for the zones in this
 				file.
@@ -209,6 +218,7 @@ zone "[% zone %]" {
    BLOCK bind_process_conf;
      # Defaults
      zones = [];
+     aliaszones = {};
      securemasters = [];
      masters = [];
      slaves = [];
@@ -216,12 +226,14 @@ zone "[% zone %]" {
 
      bind_junk = PROCESS "$bind_path";
      bind_tmp_zones = zones.join(", ");
+     bind_tmp_aliaszones = aliaszones.keys.join(", ");
      bind_tmp_securemasters = securemasters.list.join(", ");
      bind_tmp_masters = masters.list.join(", ");
      bind_tmp_slaves = slaves.list.join(", ");
      bind_tmp_views = views.list.join(", ");
      INCLUDE bind_debug text="Path: $bind_path";
      INCLUDE bind_debug text="Zones: $bind_tmp_zones";
+     INCLUDE bind_debug text="Alias Zones: $bind_tmp_aliaszones";
      INCLUDE bind_debug text="Secure masters: $bind_tmp_securemasters";
      INCLUDE bind_debug text="Masters: $bind_tmp_masters";
      INCLUDE bind_debug text="Slaves: $bind_tmp_slaves";
@@ -260,20 +272,41 @@ zone "[% zone %]" {
 
        INCLUDE bind_verbosely text="processing file: $bind_path";
        bind_dir = "etc/bind/local";
-       bind_zones = zones.list;
-       FOREACH bind_zone IN bind_zones;
+       bind_zones = {};
+       TRY;
+         bind_zones.import(aliaszones);
+       END;
+       FOREACH bind_zone IN zones.list;
+         bind_zones.$bind_zone = bind_zone;
+       END;
+       FOREACH bind_zone IN bind_zones.pairs;
+         bind_orig_z = bind_zone.key;
+         bind_orig_name = bind_zone.value;
          bind_asciihost_re = '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$';
-         IF bind_zone.match(bind_asciihost_re);
-	   bind_z = bind_zone;
+	 IF bind_orig_z.match(bind_asciihost_re);
+	   bind_z = bind_orig_z;
 	 ELSE;
-	   bind_z = bind_zone.domain_to_ascii;
+	   bind_z = bind_orig_z.domain_to_ascii;
 	 END;
- 	 IF bind_z != bind_zone;
-           INCLUDE bind_verbosely text="processing zone $bind_type: $bind_zone => $bind_z";
+	 IF bind_z != bind_orig_z;
+           INCLUDE bind_verbosely text="processing zone $bind_type: $bind_orig_z => $bind_z";
      	 ELSE;
            INCLUDE bind_verbosely text="processing zone $bind_type: $bind_z";
  	 END;
- 	 bind_name = bind_z;
+	 IF bind_orig_name == bind_orig_z;
+	   bind_name = bind_z;
+	 ELSE;
+	   IF bind_orig_name.match(bind_asciihost_re);
+	     bind_name = bind_orig_name;
+	   ELSE;
+	     bind_name = bind_orig_name.domain_to_ascii;
+	   END;
+	   IF bind_name != bind_orig_name;
+	     INCLUDE bind_verbosely text="processing aliased zone $bind_type: $bind_orig_name => $bind_name";
+	   ELSE;
+	     INCLUDE bind_verbosely text="processing aliased zone $bind_type: $bind_name";
+	   END;
+	 END;
  	 bind_name = bind_name.replace('/', '-');
 	 IF viewname;
 	   bind_name = "view_${viewname}.$bind_name";
@@ -285,7 +318,7 @@ zone "[% zone %]" {
  	   INCLUDE bind_zonefile
 	   	   path="$bind_path"
 		   name="$bind_name"
- 		   zone_orig="$bind_zone"
+		   zone_orig="$bind_orig_z"
  		   zone="$bind_z"
  		   host="$bind_host"
 		 | redirect("$bind_dir/$bind_zfn");
@@ -297,7 +330,7 @@ zone "[% zone %]" {
 	 END;
          INCLUDE "bind_$bind_type"
 		 name="$bind_name"
- 		 zone_orig="$bind_zone"
+		 zone_orig="$bind_orig_z"
  		 zone="$bind_z"
  		 host="$bind_host";
        END;
