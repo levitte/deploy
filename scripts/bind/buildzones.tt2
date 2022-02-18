@@ -207,6 +207,13 @@ zone "[% zone %]" {
 -%]
 [%
    BLOCK bind_process_conf;
+     # Defaults
+     zones = [];
+     securemasters = [];
+     masters = [];
+     slaves = [];
+     views = [];
+
      bind_junk = PROCESS "$bind_path";
      bind_tmp_zones = zones.join(", ");
      bind_tmp_securemasters = securemasters.list.join(", ");
